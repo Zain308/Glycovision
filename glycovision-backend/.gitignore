@@ -1,0 +1,33 @@
+# --- Secrets -----------------------------------------------------------
+# Real keys live only in .env; .env.example is the committed template.
+.env
+.env.*
+!.env.example
+
+# --- Python ------------------------------------------------------------
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Runtime files -----------------------------------------------------
+# Uploaded meal photos and voice recordings while they're processed.
+tmp/
+temp_*
+
+# --- Large data and model files ----------------------------------------
+# Too big for git (GitHub rejects files over 100 MB). Keep them on disk,
+# and share them separately (e.g. Git LFS or a storage bucket).
+datasets/
+*.zip
+*.pt
+*.pth
+*.joblib
+*.onnx
+
+# --- Editors / OS ------------------------------------------------------
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

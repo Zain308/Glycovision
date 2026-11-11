@@ -1,0 +1,15 @@
+# Top-level ignores for the GlycoVision workspace.
+# glycovision-app/ and glycovision-backend/ have their own .gitignore files.
+
+# Local copies kept out of git
+_archive/
+_backups/
+
+# Training dataset (407 MB): too large for git; keep on disk or in storage.
+HUPA-UCM Diabetes Dataset/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,21 +1,28 @@
 // app/(tabs)/profile.tsx
+//
+// Profile: identity card, personal info, insulin settings as large
+// number fields, and links. Load/save/logout logic unchanged.
 
 import React, { useState, useEffect } from "react";
 
 import {
   View,
-  Text,
   StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
+  Pressable,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Text, TextInput } from "@/components/ui/Typography";
 
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { Card } from "@/components/ui/Card";
+import { NotificationBell } from "@/components/NotificationBell";
+import { Screen } from "@/components/ui/Screen";
+import { Button } from "@/components/ui/Button";
+import { ListRow, SectionHeader } from "@/components/ui/Bits";
+import { colors, radius, tabular } from "@/constants/theme";
 
 import {
   getProfile,
@@ -251,467 +258,219 @@ export default function ProfileScreen() {
   // -----------------------------------------------------
 
   if (loading) {
-
     return (
-
-      <View
-        style={[
-          styles.container,
-          styles.loadingContainer,
-        ]}
-      >
-
-        <ActivityIndicator
-          size="large"
-          color="#7C3AED"
-        />
-
-      </View>
-
+      <Screen scroll={false} contentStyle={{ justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </Screen>
     );
-
   }
 
+  const initials =
+    fullName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "G";
+
+  const settingFields = [
+    { label: "Carb ratio", unit: "g/u", hint: "1 unit covers … g carbs", value: icr, set: setIcr },
+    { label: "Sensitivity", unit: "mg/dL/u", hint: "Drop per 1 unit", value: isf, set: setIsf },
+    { label: "Target sugar", unit: "mg/dL", hint: "Your goal reading", value: targetBg, set: setTargetBg },
+    { label: "Insulin action", unit: "h", hint: "Usually 3–5 hours", value: diaHours, set: setDiaHours },
+  ];
 
   // -----------------------------------------------------
   // UI
   // -----------------------------------------------------
 
   return (
-
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{
-        padding: 20,
-        paddingBottom: 50,
-      }}
-    >
-
-      <Text style={styles.screenTitle}>
-        Profile
-      </Text>
-
-
-      {/* ACCOUNT CARD */}
-
-      <Card style={styles.avatarCard}>
-
-        <View style={styles.avatarCircle}>
-
-          <Ionicons
-            name="person"
-            size={32}
-            color="#7C3AED"
-          />
-
+    <Screen title="Profile" right={<NotificationBell />}>
+      <Card variant="hero" style={styles.idCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials}</Text>
         </View>
-
-
-        <Text style={styles.emailText}>
-          {email}
-        </Text>
-
-      </Card>
-
-
-      {/* PERSONAL INFORMATION */}
-
-      <Card>
-
-        <Text style={styles.sectionTitle}>
-          Personal Info
-        </Text>
-
-
-        <View style={styles.inputGroup}>
-
-          <Text style={styles.inputLabel}>
-            Full Name
+        <View style={{ flex: 1 }}>
+          <Text style={styles.idName} numberOfLines={1}>
+            {fullName || "Your name"}
           </Text>
-
-          <TextInput
-            style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Your name"
-            placeholderTextColor="#9CA3AF"
-          />
-
-        </View>
-
-
-        <View style={styles.inputGroup}>
-
-          <Text style={styles.inputLabel}>
-            Diabetes Type
+          <Text style={styles.idEmail} numberOfLines={1}>
+            {email}
           </Text>
-
-
-          <View style={styles.typeRow}>
-
-            {DIABETES_TYPES.map(
-              (type) => (
-
-                <TouchableOpacity
-
-                  key={type}
-
-                  style={[
-                    styles.typeChip,
-
-                    diabetesType === type &&
-                      styles.typeChipActive,
-                  ]}
-
-                  onPress={() =>
-                    setDiabetesType(type)
-                  }
-                >
-
-                  <Text
-                    style={[
-                      styles.typeChipText,
-
-                      diabetesType === type &&
-                        styles.typeChipTextActive,
-                    ]}
-                  >
-
-                    {type}
-
-                  </Text>
-
-                </TouchableOpacity>
-
-              )
-            )}
-
+          <View style={styles.idPill}>
+            <Ionicons name="water" size={13} color={colors.heroText} />
+            <Text style={styles.idPillText}>{diabetesType}</Text>
           </View>
-
         </View>
-
       </Card>
 
-
-      {/* CLINICAL SETTINGS */}
-
+      <SectionHeader title="About you" />
       <Card>
-
-        <Text style={styles.sectionTitle}>
-          Clinical Settings
-        </Text>
-
-        <Text style={styles.sectionSub}>
-          These settings are used by the prototype
-          bolus calculation and insulin-on-board engine.
-        </Text>
-
-
-        {[
-          {
-            label: "ICR (1:x)",
-            value: icr,
-            setValue: setIcr,
-          },
-
-          {
-            label: "ISF (mg/dL per unit)",
-            value: isf,
-            setValue: setIsf,
-          },
-
-          {
-            label: "Target BG (mg/dL)",
-            value: targetBg,
-            setValue: setTargetBg,
-          },
-
-          {
-            label: "DIA (hours, 3–8)",
-            value: diaHours,
-            setValue: setDiaHours,
-          },
-        ].map(
-          (field, index) => (
-
-            <View
-              key={index}
-              style={styles.inputGroup}
-            >
-
-              <Text style={styles.inputLabel}>
-                {field.label}
-              </Text>
-
-
-              <TextInput
-                style={styles.input}
-                keyboardType="decimal-pad"
-                value={field.value}
-                onChangeText={field.setValue}
-              />
-
-            </View>
-
-          )
-        )}
-
-
-        <TouchableOpacity
-          style={[
-            styles.saveBtn,
-            saving &&
-              styles.saveBtnDisabled,
-          ]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-
-          {saving ? (
-
-            <ActivityIndicator
-              color="#fff"
-            />
-
-          ) : (
-
-            <Text style={styles.saveBtnText}>
-              Save Changes
-            </Text>
-
-          )}
-
-        </TouchableOpacity>
-
-      </Card>
-
-
-      {/* VOICE CONTEXT INFO */}
-
-      <Card>
-
-        <View style={styles.infoHeader}>
-
-          <View style={styles.infoIconCircle}>
-
-            <Ionicons
-              name="mic-outline"
-              size={20}
-              color="#7C3AED"
-            />
-
-          </View>
-
-
-          <View style={{ flex: 1 }}>
-
-            <Text style={styles.sectionTitle}>
-              Voice Context
-            </Text>
-
-            <Text style={styles.infoText}>
-              Voice recordings are analyzed separately
-              as experimental acoustic context. They do
-              not directly modify insulin calculations.
-            </Text>
-
-          </View>
-
-        </View>
-
-      </Card>
-
-
-      {/* LOGOUT */}
-
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={handleLogout}
-      >
-
-        <Ionicons
-          name="log-out-outline"
-          size={18}
-          color="#EF4444"
+        <Text style={styles.label}>Full name</Text>
+        <TextInput
+          style={styles.input}
+          value={fullName}
+          onChangeText={setFullName}
+          placeholder="Your name"
+          placeholderTextColor={colors.textFaint}
+          accessibilityLabel="Full name"
         />
 
-        <Text style={styles.logoutText}>
-          Log Out
+        <Text style={[styles.label, { marginTop: 16 }]}>Diabetes type</Text>
+        <View style={styles.typeRow}>
+          {DIABETES_TYPES.map((t) => {
+            const active = diabetesType === t;
+            return (
+              <Pressable
+                key={t}
+                onPress={() => setDiabetesType(t)}
+                style={[styles.typeChip, active && styles.typeChipActive]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={t}
+              >
+                {active ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+                <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{t}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
+
+      <SectionHeader title="Insulin settings" />
+      <Card>
+        <Text style={styles.sectionSub}>
+          Used by the bolus estimate and active-insulin model. Ask your doctor for these numbers.
         </Text>
+        <View style={styles.grid}>
+          {settingFields.map((f) => (
+            <View key={f.label} style={styles.gridItem}>
+              <Text style={styles.label}>{f.label}</Text>
+              <View style={styles.numBox}>
+                <TextInput
+                  style={styles.numInput}
+                  keyboardType="decimal-pad"
+                  value={f.value}
+                  onChangeText={f.set}
+                  accessibilityLabel={`${f.label} in ${f.unit}`}
+                />
+                <Text style={styles.numUnit}>{f.unit}</Text>
+              </View>
+              <Text style={styles.hint}>{f.hint}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
 
-      </TouchableOpacity>
+      <Button label="Save changes" icon="checkmark" onPress={handleSave} loading={saving} />
 
-    </ScrollView>
+      <SectionHeader title="Safety & reminders" style={{ marginTop: 22 }} />
+      <Card>
+        <ListRow
+          icon="notifications"
+          title="Reminders & alerts"
+          detail="Sugar checks, medicine times and smart alerts"
+          onPress={() => router.push("/reminders")}
+        />
+        <View style={styles.divider} />
+        <ListRow
+          icon="medkit"
+          tone="danger"
+          title="Low sugar help"
+          detail="Rule of 15, timer and emergency contact"
+          onPress={() => router.push("/low-help")}
+        />
+      </Card>
 
+      <SectionHeader title="Good to know" />
+      <Card>
+        <ListRow
+          icon="mic"
+          tone="warning"
+          title="Voice checks"
+          detail="Add stress context to your advice. They never change an insulin dose."
+          onPress={() => router.push("/(tabs)/voice")}
+        />
+        <View style={styles.divider} />
+        <ListRow
+          icon="book"
+          title="Food library"
+          detail="Carbs for 88 dishes, with sources"
+          onPress={() => router.push("/library")}
+        />
+      </Card>
+
+      <Button label="Log out" icon="log-out-outline" variant="secondary" onPress={handleLogout} style={styles.logout} />
+    </Screen>
   );
-
 }
 
-
 const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F7FF",
-  },
-
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginTop: 40,
-    marginBottom: 16,
-    color: "#111827",
-  },
-
-
-  avatarCard: {
-    alignItems: "center",
-    paddingVertical: 24,
-  },
-
-  avatarCircle: {
+  idCard: { flexDirection: "row", alignItems: "center", gap: 16, padding: 20, borderRadius: radius.xl },
+  avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#EDE9FE",
+    backgroundColor: colors.heroRaised,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
   },
-
-  emailText: {
-    color: "#6B7280",
-    fontSize: 14,
-  },
-
-
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 6,
-    color: "#111827",
-  },
-
-  sectionSub: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginBottom: 14,
-    lineHeight: 18,
-  },
-
-
-  inputGroup: {
-    marginBottom: 14,
-  },
-
-  inputLabel: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginBottom: 6,
-  },
-
-  input: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-
-
-  typeRow: {
+  avatarText: { fontSize: 24, fontWeight: "800", color: colors.heroText },
+  idName: { fontSize: 21, fontWeight: "800", color: colors.heroText },
+  idEmail: { fontSize: 14.5, color: colors.heroMuted, marginTop: 2 },
+  idPill: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-
-  typeChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-
-  typeChipActive: {
-    backgroundColor: "#EDE9FE",
-    borderColor: "#7C3AED",
-  },
-
-  typeChipText: {
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-
-  typeChipTextActive: {
-    color: "#7C3AED",
-  },
-
-
-  saveBtn: {
-    backgroundColor: "#7C3AED",
-    borderRadius: 14,
-    paddingVertical: 16,
     alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    backgroundColor: colors.heroRaised,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     marginTop: 8,
   },
+  idPillText: { fontSize: 13, fontWeight: "700", color: colors.heroText },
 
-  saveBtnDisabled: {
-    opacity: 0.6,
+  label: { fontSize: 14.5, fontWeight: "700", color: colors.textMuted, marginBottom: 8 },
+  input: {
+    backgroundColor: colors.input,
+    borderRadius: radius.md,
+    paddingHorizontal: 16,
+    minHeight: 54,
+    fontSize: 17,
+    color: colors.text,
   },
-
-  saveBtnText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-
-
-  infoHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-
-  infoIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#EDE9FE",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  infoText: {
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
-  },
-
-
-  logoutBtn: {
+  typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  typeChip: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    marginTop: 10,
+    gap: 5,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
+  typeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  typeChipText: { fontSize: 15, fontWeight: "700", color: colors.text },
+  typeChipTextActive: { color: "#FFFFFF" },
 
-  logoutText: {
-    color: "#EF4444",
-    fontWeight: "600",
-    fontSize: 15,
+  sectionSub: { fontSize: 14.5, lineHeight: 21, color: colors.textMuted, marginBottom: 14 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  gridItem: { width: "47%", flexGrow: 1 },
+  numBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.input,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    minHeight: 56,
   },
+  numInput: { flex: 1, minWidth: 0, fontSize: 21, fontWeight: "800", color: colors.text, paddingVertical: 10, ...tabular },
+  numUnit: { fontSize: 13.5, fontWeight: "700", color: colors.textFaint },
+  hint: { fontSize: 13, color: colors.textFaint, marginTop: 6 },
 
+  divider: { height: 1, backgroundColor: colors.divider },
+  logout: { marginTop: 8 },
 });

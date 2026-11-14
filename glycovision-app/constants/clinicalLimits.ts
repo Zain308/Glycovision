@@ -14,6 +14,9 @@ export const LIMITS = {
   // Duration of insulin action in hours (inclusive bounds). Below 3 h the
   // insulin-on-board curve is invalid; rapid-acting insulin lasts 3-8 h.
   diaHours: { min: 3, max: 8 },
+  // Carbs for one meal / dose estimate (inclusive). Above this is almost
+  // certainly a typo (6000 instead of 60). Matches MAX_MEAL_CARBS_G.
+  mealCarbs: { min: 0, max: 500 },
 } as const;
 
 export function validateClinicalSettings(values: {

@@ -12,6 +12,48 @@ export const BASE_URL = API_URL;
 
 
 // ---------------------------------------------------------
+// RELIABLE FETCH
+// ---------------------------------------------------------
+// Every request in this file goes through this `fetch` (it shadows the
+// global one inside this module):
+//   * gives up after 20 s (60 s for photo uploads) instead of hanging
+//   * retries a GET once after a short pause (flaky mobile networks)
+//   * turns network failures into plain-language errors
+// POSTs are never retried, so nothing is logged twice.
+
+const REQUEST_TIMEOUT_MS = 20_000;
+const UPLOAD_TIMEOUT_MS = 60_000;
+
+async function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const isUpload = typeof FormData !== "undefined" && init.body instanceof FormData;
+  const timeoutMs = isUpload ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const attempts = method === "GET" ? 2 : 1;
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await globalThis.fetch(input, { ...init, signal: init.signal ?? controller.signal });
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await new Promise((r) => setTimeout(r, 800));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const aborted = (lastError as { name?: string })?.name === "AbortError";
+  throw new Error(
+    aborted
+      ? "The server took too long to answer. Check your internet and try again."
+      : "Couldn't reach GlycoVision. Check your internet connection and try again.",
+  );
+}
+
+
+// ---------------------------------------------------------
 // TYPES
 // ---------------------------------------------------------
 
@@ -341,6 +383,87 @@ export async function logMeal(
 
 
 // ---------------------------------------------------------
+// DISH PICKED BY THE USER (scanner was unsure)
+// ---------------------------------------------------------
+
+export interface DishSuggestion {
+  food_name: string;
+  display_name: string;
+  confidence: number;
+}
+
+// Same result shape as analyzeMeal, for a dish the user chose.
+export async function getDishNutrition(
+  suggestion: DishSuggestion
+) {
+  const res = await fetch(
+    `${BASE_URL}/api/v1/dish-nutrition/${encodeURIComponent(suggestion.food_name)}` +
+      `?confidence=${suggestion.confidence}`,
+    {
+      headers:
+        await authHeaders(),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      `Dish lookup failed: ${await res.text()}`
+    );
+  }
+
+  return res.json();
+}
+
+
+// ---------------------------------------------------------
+// TODAY TIMELINE (meals, insulin, readings)
+// ---------------------------------------------------------
+
+export interface TimelineEvent {
+  type: "meal" | "insulin" | "bg";
+  title: string;
+  detail: string;
+  value?: number;
+  logged_at: string;
+}
+
+export async function getTimelineToday(): Promise<TimelineEvent[]> {
+  const res = await fetch(`${BASE_URL}/api/v1/timeline-today`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Timeline failed: ${await res.text()}`);
+  }
+  return (await res.json()).events ?? [];
+}
+
+
+// ---------------------------------------------------------
+// FOOD LIBRARY
+// ---------------------------------------------------------
+
+export interface LibraryFood {
+  food_name: string;
+  display_name: string;
+  portion: { unit: string; unit_plural: string; unit_grams: number; kind: string };
+  per_portion: { calories: number; carbs: number; protein: number; fat: number; fiber: number };
+  per_100g: { calories: number; carbs: number; protein: number; fat: number; fiber: number };
+  match: string;
+  source: string;
+}
+
+export async function getFoodLibrary(): Promise<LibraryFood[]> {
+  const res = await fetch(`${BASE_URL}/api/v1/foods`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Food library failed: ${await res.text()}`);
+  }
+  return (await res.json()).foods;
+}
+
+
+// ---------------------------------------------------------
 // PROFILE
 // ---------------------------------------------------------
 
@@ -601,6 +724,44 @@ export async function getSpikeIntervention() {
   }
 
   return response.json();
+}
+
+
+// ---------------------------------------------------------
+// STRESS CONTEXT (from recent voice checks)
+// ---------------------------------------------------------
+
+export type StressLevel = "calm" | "possible" | "elevated";
+
+export interface StressContext {
+  status: "recent" | "no_recent_check";
+  level: StressLevel | null;
+  basis?: "personal_baseline" | "single_recording";
+  checked_at?: string;
+  age_minutes?: number;
+  headline: string;
+  summary: string;
+  suggestions: string[];
+  // Note shown beside a bolus estimate; the dose itself never changes.
+  bolus_note: string | null;
+  disclaimer?: string;
+}
+
+export async function getStressContext(): Promise<StressContext> {
+  const res = await fetch(
+    `${BASE_URL}/api/v1/stress-context`,
+    {
+      headers: await authHeaders(),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      `Stress context failed: ${await res.text()}`
+    );
+  }
+
+  return res.json();
 }
 
 

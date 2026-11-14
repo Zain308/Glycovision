@@ -1,8 +1,8 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useEffect, useMemo, useState } from "react";
 
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   Linking,
 } from "react-native";
+import { Text } from "@/components/ui/Typography";
 
 import {
   useAudioRecorder,
@@ -24,7 +25,14 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Card } from "@/components/ui/Card";
-import { BASE_URL, getVoiceHistory } from "@/services/api";
+import {
+  BASE_URL,
+  getVoiceHistory,
+  type StressContext,
+} from "@/services/api";
+import { router } from "expo-router";
+import { StressContextCard } from "@/components/StressContextCard";
+import { ResearchNote } from "@/components/ui/ResearchNote";
 import { supabase } from "@/lib/supabase";
 
 import { colors, spacing, radius, type } from "@/constants/theme";
@@ -67,6 +75,8 @@ type BaselineRefresh = {
 };
 
 type VoiceResult = {
+  // What this check means for the user (backend services/stress_context).
+  stress_context?: StressContext | null;
   stress_score?: number;
   acoustic_score?: number;
 
@@ -193,6 +203,7 @@ function getPatternTitle(pattern?: string | null) {
 // ---------------------------------------------------------
 
 export default function VoiceScreen() {
+  const insets = useSafeAreaInsets();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const recorderState = useAudioRecorderState(recorder);
@@ -205,6 +216,9 @@ export default function VoiceScreen() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Technical acoustic numbers are hidden until the user asks for them.
+  const [showDetails, setShowDetails] = useState(false);
 
   const loadVoiceHistory = async () => {
     setHistoryLoading(true);
@@ -288,6 +302,7 @@ export default function VoiceScreen() {
       }
 
       setResult(null);
+      setShowDetails(false);
 
       await recorder.prepareToRecordAsync();
 
@@ -531,7 +546,7 @@ export default function VoiceScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* HEADER */}
@@ -546,7 +561,7 @@ export default function VoiceScreen() {
             flex: 1,
           }}
         >
-          <Text style={styles.title}>Voice Acoustic Check</Text>
+          <Text style={styles.title} accessibilityRole="header">Voice check</Text>
 
           <Text style={styles.subtitle}>
             Speak naturally for a short acoustic check — no fixed phrase
@@ -653,6 +668,23 @@ export default function VoiceScreen() {
         )}
       </Card>
 
+      {/* WHAT THIS MEANS (stress context) */}
+
+      {result?.stress_context && result.quality !== "limited" && (
+        <Card style={styles.resultCard}>
+          <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>
+            What this means for you
+          </Text>
+          <StressContextCard
+            context={result.stress_context}
+            onLogBg={() =>
+              router.push({ pathname: "/(tabs)", params: { logBg: "1" } })
+            }
+            onOpenBolus={() => router.push("/(tabs)/bolus")}
+          />
+        </Card>
+      )}
+
       {/* RESULT */}
 
       {result && (
@@ -714,8 +746,8 @@ export default function VoiceScreen() {
               <Text style={styles.scoreLabel}>Voice variability</Text>
 
               <Text style={styles.scoreHelper}>
-                An experimental summary of this recording’s acoustic variation —
-                not a stress percentage or diagnosis.
+                How much your pitch and voice quality varied in this
+                recording. It is not a stress percentage.
               </Text>
 
               <View style={styles.scoreTrack}>
@@ -733,6 +765,24 @@ export default function VoiceScreen() {
 
           <View style={styles.divider} />
 
+          <TouchableOpacity
+            style={styles.detailsToggle}
+            onPress={() => setShowDetails((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showDetails }}
+          >
+            <Text style={styles.detailsToggleText}>
+              {showDetails ? "Hide technical details" : "Show technical details"}
+            </Text>
+            <Ionicons
+              name={showDetails ? "chevron-up" : "chevron-down"}
+              size={16}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+
+          {showDetails && (
+          <>
           {/* FEATURE TRACKS */}
 
           <Text style={styles.featureHeading}>Acoustic feature tracks</Text>
@@ -1009,20 +1059,18 @@ export default function VoiceScreen() {
             </View>
           )}
 
+          </>
+          )}
+
           {/* DISCLAIMER */}
 
-          <View style={styles.disclaimerBox}>
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={16}
-              color={colors.textMuted}
-            />
-
-            <Text style={styles.disclaimer}>
-              {result.disclaimer ??
-                "Experimental acoustic analysis only. This feature is not a clinical diagnosis and should not be used to determine insulin requirements."}
-            </Text>
-          </View>
+          <ResearchNote
+            label="Experimental voice analysis · not a diagnosis"
+            details={
+              result.disclaimer ??
+              "Experimental acoustic analysis only. This feature is not a clinical diagnosis and should not be used to determine insulin requirements."
+            }
+          />
         </Card>
       )}
 
@@ -1241,15 +1289,28 @@ function FeatureTrack({
 // ---------------------------------------------------------
 
 const styles = StyleSheet.create({
+  detailsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+  },
+  detailsToggleText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+
   container: {
     flex: 1,
     backgroundColor: colors.bg,
   },
 
   content: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: 50,
-    paddingBottom: 48,
+    paddingHorizontal: 20,
+    // Room above the floating tab bar.
+    paddingBottom: 140,
   },
 
   header: {
@@ -1260,24 +1321,22 @@ const styles = StyleSheet.create({
   },
 
   headerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primarySoft,
   },
 
   title: {
-    ...type.sectionTitle,
-    fontSize: 23,
-    color: colors.text,
+    ...type.title,
   },
 
   subtitle: {
     marginTop: 4,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 21,
     color: colors.textMuted,
   },
 
@@ -1872,22 +1931,7 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
   },
 
-  disclaimerBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceMuted,
-  },
 
-  disclaimer: {
-    flex: 1,
-    fontSize: 10,
-    color: colors.textMuted,
-    lineHeight: 15,
-  },
 
   limitedResultBox: {
     marginTop: 20,

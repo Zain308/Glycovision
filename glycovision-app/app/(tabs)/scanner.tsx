@@ -1,21 +1,39 @@
 // app/(tabs)/scanner.tsx
+//
+// Meal scanner: photo -> dish -> carbs (the hero number, because it drives
+// the insulin estimate) -> portion -> actions. When the model is unsure the
+// user picks from its top guesses instead of seeing "no food".
 import React, { useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Image,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { Text } from "@/components/ui/Typography";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { analyzeMeal, getProfile, logMeal } from "@/services/api";
+import {
+  DishSuggestion,
+  analyzeMeal,
+  getDishNutrition,
+  getProfile,
+  logMeal,
+} from "@/services/api";
 import { Card } from "@/components/ui/Card";
+import { Screen } from "@/components/ui/Screen";
+import { Button } from "@/components/ui/Button";
+import { IconBadge, ListRow, SectionHeader } from "@/components/ui/Bits";
+import { ResearchNote } from "@/components/ui/ResearchNote";
 import { PortionPicker } from "@/components/PortionPicker";
+import { ScanPhoto } from "@/components/ScanPhoto";
+import { NotificationBell } from "@/components/NotificationBell";
+import { AnimatedNumber } from "@/components/ui/Motion";
+import { onMealLogged } from "@/lib/notifications";
+import { haptic } from "@/lib/haptics";
+import { colors, radius, tabular } from "@/constants/theme";
 import {
   MealNutrition,
   describePortion,
@@ -33,11 +51,37 @@ export default function ScannerScreen() {
   const [icrUsed, setIcrUsed] = useState<number | null>(null);
   // How much the user says they ate, in grams. Starts at one unit.
   const [portionGrams, setPortionGrams] = useState<number | null>(null);
+  // The model's guesses when it was not sure which dish this is.
+  const [suggestions, setSuggestions] = useState<DishSuggestion[] | null>(null);
+
+  // Show an analysis result: portion, then the ICR for the dose estimate.
+  const showResult = async (data: any) => {
+    setResult(data);
+    if (isPortionInfo(data.portion)) {
+      setPortionGrams(data.portion.unit_grams);
+    }
+
+    // The dish was recognised but no nutrition source knows it.
+    // Never estimate a dose from missing carbs.
+    if (data.nutrition_found === false) {
+      return;
+    }
+
+    // The ICR is used for the meal-coverage estimate, which is
+    // recalculated whenever the portion changes.
+    try {
+      const profile = await getProfile();
+      setIcrUsed(profile.icr ?? 10);
+    } catch (e) {
+      console.error("Could not load profile for dose estimate", e);
+    }
+  };
 
   const processImage = async (uri: string, mimeType?: string | null) => {
     setImage(uri);
     setLoading(true);
     setResult(null);
+    setSuggestions(null);
     setLogged(false);
     setIcrUsed(null);
     setPortionGrams(null);
@@ -50,6 +94,10 @@ export default function ScannerScreen() {
         onStage: (stage) => setStep(stage === "uploading" ? 1 : 2),
       });
       setStep(3);
+      if (data.suggestions?.length) {
+        setSuggestions(data.suggestions);
+        return;
+      }
       if (!data.ai_found || data.ai_found.length === 0) {
         Alert.alert(
           "No food detected",
@@ -58,29 +106,25 @@ export default function ScannerScreen() {
         setImage(null);
         return;
       }
-      setResult(data);
-      if (isPortionInfo(data.portion)) {
-        setPortionGrams(data.portion.unit_grams);
-      }
-
-      // The dish was recognised but no nutrition source knows it.
-      // Never estimate a dose from missing carbs.
-      if (data.nutrition_found === false) {
-        return;
-      }
-
-      // The ICR is used for the meal-coverage estimate, which is
-      // recalculated whenever the portion changes.
-      try {
-        const profile = await getProfile();
-        setIcrUsed(profile.icr ?? 10);
-      } catch (e) {
-        console.error("Could not load profile for dose estimate", e);
-      }
+      await showResult(data);
     } catch (e: any) {
       console.error("Scan failed:", e.message || e);
       Alert.alert("Error", e.message || "Could not reach the backend. Check IP & server.");
-  
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chooseSuggestion = async (choice: DishSuggestion) => {
+    setLoading(true);
+    setStep(2);
+    try {
+      const data = await getDishNutrition(choice);
+      setSuggestions(null);
+      await showResult(data);
+    } catch (e: any) {
+      console.error("Dish lookup failed:", e.message || e);
+      Alert.alert("Error", "Could not load this dish. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -147,6 +191,9 @@ export default function ScannerScreen() {
         calories: meal.nutrition.calories,
       });
       setLogged(true);
+      haptic.success();
+      // Reminder to check sugar 2 hours after this meal.
+      onMealLogged(name);
     } catch (e) {
       Alert.alert("Error", "Could not log this meal.");
     } finally {
@@ -189,360 +236,332 @@ export default function ScannerScreen() {
     const portion = isPortionInfo(result.portion) ? result.portion : null;
     const mealCoverageUnits =
       carbs !== null && icrUsed ? Math.round((carbs / icrUsed) * 10) / 10 : null;
+    const nutrientSource: string | undefined = item.nutrients?.source;
 
     return (
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ padding: 20, paddingBottom: 50 }}
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>AI Food Scanner</Text>
-        </View>
+      <Screen title="Your meal">
+        {image && (
+          <View style={styles.photoWrap}>
+            <Image source={{ uri: image }} style={styles.resultImage} accessibilityIgnoresInvertColors />
+            {confidencePct !== null && (
+              <View style={styles.photoChip}>
+                <Ionicons name="sparkles" size={14} color="#fff" />
+                <Text style={styles.photoChipText}>{confidencePct}% sure</Text>
+              </View>
+            )}
+          </View>
+        )}
 
-        {image && <Image source={{ uri: image }} style={styles.resultImage} />}
+        <Text style={styles.foodName} accessibilityRole="header">
+          {item.food_name || "Detected meal"}
+        </Text>
 
-        <Card>
-          <View style={styles.badgeRow}>
-            <View style={styles.dbBadge}>
-              <Text style={styles.dbText}>
-                GlycoVision Food Analysis
-                {confidencePct !== null ? ` · ${confidencePct}%` : ""}
+        {!nutritionFound ? (
+          <Card variant="flat" style={styles.unknownBox}>
+            <IconBadge icon="alert-circle" tone="warning" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.unknownTitle}>Carbs unknown for this dish</Text>
+              <Text style={styles.unknownText}>
+                We recognised it but have no trusted nutrition data yet. Check a label or food guide,
+                then enter the carbs yourself in Bolus.
               </Text>
             </View>
-          </View>
+          </Card>
+        ) : (
+          <>
+            {portion && portionGrams !== null && (
+              <PortionPicker portion={portion} grams={portionGrams} onChange={changePortion} />
+            )}
 
-          <Text style={styles.foodName}>
-            {item.food_name || "Detected Meal"}
-          </Text>
+            {/* Carbs first: it drives the insulin estimate. */}
+            <Card variant="hero" style={styles.carbHero}>
+              <Text style={styles.carbLabel}>CARBS</Text>
+              <View style={styles.carbRow}>
+                <AnimatedNumber value={carbs} style={styles.carbValue} />
+                <Text style={styles.carbUnit}>g</Text>
+              </View>
+              {meal?.label ? <Text style={styles.carbFor}>for {meal.label}</Text> : null}
 
-          {nutritionFound && portion && portionGrams !== null && (
-            <PortionPicker
-              portion={portion}
-              grams={portionGrams}
-              onChange={changePortion}
+              {/* Where the energy comes from: carbs / protein / fat (by calories) */}
+              {carbs !== null && protein !== null && fat !== null && carbs + protein + fat > 0 ? (
+                <View style={styles.splitWrap}>
+                  <View style={styles.splitBar}>
+                    {[
+                      { k: "c", v: carbs * 4, c: colors.carbs },
+                      { k: "p", v: protein * 4, c: colors.success },
+                      { k: "f", v: fat * 9, c: colors.primary },
+                    ].map((s) => (
+                      <View key={s.k} style={{ flex: Math.max(s.v, 0.01), backgroundColor: s.c }} />
+                    ))}
+                  </View>
+                  <View style={styles.splitLegend}>
+                    {[
+                      { l: "Carbs", c: colors.carbs },
+                      { l: "Protein", c: colors.success },
+                      { l: "Fat", c: colors.primary },
+                    ].map((s) => (
+                      <View key={s.l} style={styles.splitItem}>
+                        <View style={[styles.splitDot, { backgroundColor: s.c }]} />
+                        <Text style={styles.splitText}>{s.l}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.macroRow}>
+                {[
+                  { l: "Calories", v: show(calories) },
+                  { l: "Protein", v: show(protein, " g") },
+                  { l: "Fat", v: show(fat, " g") },
+                ].map((m) => (
+                  <View key={m.l} style={styles.macroBox}>
+                    <Text style={styles.macroVal}>{m.v}</Text>
+                    <Text style={styles.macroLabel}>{m.l}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            <Card variant="tint">
+              <View style={styles.coverRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.coverLabel}>Insulin for this meal</Text>
+                  <Text style={styles.coverNote}>
+                    {icrUsed
+                      ? `Carbs ÷ your ratio 1:${icrUsed}. Excludes correction for high sugar.`
+                      : "Open Bolus for your full estimate."}
+                  </Text>
+                </View>
+                <View style={styles.coverValueRow}>
+                  <AnimatedNumber value={mealCoverageUnits} decimals={1} style={styles.coverValue} />
+                  <Text style={styles.coverUnit}> u</Text>
+                </View>
+              </View>
+            </Card>
+
+            {nutrientSource ? (
+              <ResearchNote label="Where these numbers come from" details={nutrientSource} />
+            ) : null}
+          </>
+        )}
+
+        <View style={styles.actions}>
+          <Button
+            label={nutritionFound ? "Calculate my dose" : "Enter carbs in Bolus"}
+            icon="calculator"
+            onPress={goToBolusWithCarbs}
+          />
+          {nutritionFound && (
+            <Button
+              label={logged ? "Meal logged" : "Log this meal"}
+              icon={logged ? "checkmark-circle" : "add-circle-outline"}
+              variant={logged ? "success" : "secondary"}
+              onPress={handleLogMeal}
+              loading={logging}
+              disabled={logged}
             />
           )}
-
-          {nutritionFound && !portion && item.estimated_volume && (
-            <Text style={styles.servingNote}>
-              Values for {item.estimated_volume}. Adjust for your actual portion.
-            </Text>
-          )}
-
-          {!nutritionFound && (
-            <View style={styles.unknownBox}>
-              <Ionicons name="alert-circle-outline" size={20} color="#B45309" />
-              <Text style={styles.unknownText}>
-                We recognised this dish but don't have its nutrition data yet.
-                Check the label or a food guide, then enter the carbs yourself
-                in the Bolus tab.
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.macroGrid}>
-            <View style={styles.macroBox}>
-              <Text style={styles.macroLabel}>CAL</Text>
-              <Text style={styles.macroVal}>{show(calories)}</Text>
-            </View>
-            <View style={styles.macroBox}>
-              <Text style={styles.macroLabel}>CARBS</Text>
-              <Text style={styles.macroVal}>{show(carbs, "g")}</Text>
-            </View>
-            <View style={styles.macroBox}>
-              <Text style={styles.macroLabel}>PROTEIN</Text>
-              <Text style={styles.macroVal}>{show(protein, "g")}</Text>
-            </View>
-            <View style={styles.macroBox}>
-              <Text style={styles.macroLabel}>FAT</Text>
-              <Text style={styles.macroVal}>{show(fat, "g")}</Text>
-            </View>
-          </View>
-
-          <View style={styles.bolusRow}>
-            <Text style={styles.bolusLabel}>Meal Coverage Estimate</Text>
-            <Text style={styles.bolusValue}>
-              {mealCoverageUnits !== null ? `${mealCoverageUnits} units` : "—"}
-            </Text>
-          </View>
-          <Text style={styles.bolusNote}>
-            {icrUsed
-              ? `Based on your ICR 1:${icrUsed}. Excludes BG correction — open Bolus for your full recommended dose.`
-              : "Open Bolus tab for your full recommended dose."}
-          </Text>
-
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={goToBolusWithCarbs}
-          >
-            <Text style={styles.primaryBtnText}>
-              {nutritionFound ? "Calculate Full Bolus" : "Enter Carbs in Bolus"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.secondaryBtn,
-              logged && styles.loggedBtn,
-              !nutritionFound && { opacity: 0.4 },
-            ]}
-            onPress={handleLogMeal}
-            disabled={logging || logged || !nutritionFound}
-          >
-            {logging ? (
-              <ActivityIndicator color="#7C3AED" />
-            ) : (
-              <Text
-                style={[
-                  styles.secondaryBtnText,
-                  logged && styles.loggedBtnText,
-                ]}
-              >
-                {logged ? "✓ Logged" : "Log Meal"}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.retryBtn}
+          <Button
+            label="Scan another meal"
+            icon="camera-outline"
+            variant="ghost"
             onPress={() => {
               setResult(null);
               setImage(null);
             }}
-          >
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
+          />
+        </View>
+      </Screen>
+    );
+  }
+
+  // ——— NOT SURE VIEW: let the user pick the dish ———
+  if (suggestions && !loading) {
+    return (
+      <Screen title="Which dish is this?" subtitle="We're not sure. Tap the right one.">
+        {image && <Image source={{ uri: image }} style={styles.resultImage} />}
+
+        <Card>
+          {suggestions.map((s, i) => (
+            <View key={s.food_name}>
+              {i > 0 && <View style={styles.divider} />}
+              <ListRow
+                icon="restaurant"
+                tone={i === 0 ? "brand" : "neutral"}
+                title={s.display_name}
+                detail={i === 0 ? "Best guess" : undefined}
+                onPress={() => chooseSuggestion(s)}
+              />
+            </View>
+          ))}
         </Card>
-      </ScrollView>
+
+        <Button
+          label="None of these – retake photo"
+          icon="camera-outline"
+          variant="secondary"
+          onPress={() => {
+            setSuggestions(null);
+            setImage(null);
+          }}
+        />
+        <Text style={styles.tipLine}>Tip: shoot from above, in good light, one dish at a time.</Text>
+      </Screen>
     );
   }
 
   // ——— ANALYZING VIEW ———
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: "center", alignItems: "center" },
-        ]}
-      >
-        {image && (
-          <Image source={{ uri: image }} style={styles.analyzingImage} />
-        )}
-        <ActivityIndicator
-          size="large"
-          color="#7C3AED"
-          style={{ marginVertical: 20 }}
-        />
-        <Text style={styles.analyzingTitle}>Analyzing...</Text>
-        <Text style={styles.analyzingSub}>
-          GlycoVision AI is analyzing your meal
-        </Text>
+      <Screen scroll={false} contentStyle={{ alignItems: "center", justifyContent: "center" }}>
+        {image ? <ScanPhoto uri={image} /> : <ActivityIndicator size="large" color={colors.primary} />}
+        <Text style={[styles.analyzingTitle, { marginTop: 26 }]}>Looking at your food…</Text>
+        <Text style={styles.analyzingSub}>This takes a few seconds</Text>
 
-        <View style={{ marginTop: 30, width: "80%" }}>
-          {[
-            "Uploading photo",
-            "Identifying the dish and looking up nutrition",
-          ].map((t, i) => (
+        <View style={styles.steps}>
+          {["Uploading photo", "Finding the dish and its nutrition"].map((t, i) => (
             <View key={i} style={styles.stepRow}>
               <Ionicons
                 name={step > i ? "checkmark-circle" : "ellipse-outline"}
-                size={20}
-                color={step > i ? "#10B981" : "#D1D5DB"}
+                size={22}
+                color={step > i ? colors.success : colors.border}
               />
-              <Text style={[styles.stepText, step > i && { color: "#111" }]}>
-                {t}
-              </Text>
+              <Text style={[styles.stepText, step > i && { color: colors.text }]}>{t}</Text>
             </View>
           ))}
         </View>
-      </View>
+      </Screen>
     );
   }
 
   // ——— DEFAULT SCANNER VIEW ———
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>AI Food Scanner</Text>
-        <Text style={styles.subtitle}>
-          Snap or upload a meal photo. GlycoVision identifies the dish and
-          looks up its nutrition for a standard serving.
-        </Text>
-      </View>
+    <Screen title="Scan your meal" subtitle="Take a photo and GlycoVision finds the dish and its carbs." right={<NotificationBell />}>
+      <Card variant="hero" style={styles.cameraCard}>
+        <View style={styles.cameraIcon}>
+          <Ionicons name="scan" size={40} color={colors.primary} />
+        </View>
+        <Text style={styles.cameraTitle}>Point at your plate</Text>
+        <Text style={styles.cameraSub}>Works for 70 Pakistani and everyday dishes.</Text>
+        <View style={{ alignSelf: "stretch", gap: 10, marginTop: 18 }}>
+          <Button label="Take photo" icon="camera" variant="onHero" onPress={takePhoto} />
+          <Button label="Choose from gallery" icon="images-outline" variant="onHeroOutline" onPress={pickImage} />
+        </View>
+      </Card>
 
-      <TouchableOpacity style={styles.bigPrimary} onPress={takePhoto}>
-        <Ionicons name="camera" size={22} color="#fff" />
-        <Text style={styles.bigPrimaryText}>Take Photo</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.bigSecondary} onPress={pickImage}>
-        <Ionicons name="image-outline" size={20} color="#7C3AED" />
-        <Text style={styles.bigSecondaryText}>Upload</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.modelNote}>GlycoVision AI · Experimental food analysis</Text>
-
-      <Text style={styles.sectionTitle}>Popular in your region</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginTop: 12 }}
-      >
+      <SectionHeader title="For the best result" />
+      <Card>
         {[
-          { name: "Chicken Biryani", carbs: "62g" },
-          { name: "Chicken Karahi", carbs: "8g" },
-          { name: "Naan", carbs: "45g" },
-        ].map((f, i) => (
-          <Card key={i} style={{ width: 140, marginRight: 12, padding: 14 }}>
-            <Text style={{ fontSize: 28, marginBottom: 8 }}>🍛</Text>
-            <Text style={{ fontWeight: "600", fontSize: 14 }}>{f.name}</Text>
-            <Text style={{ color: "#6B7280", marginTop: 4 }}>{f.carbs}</Text>
-          </Card>
+          { icon: "sunny-outline" as const, t: "Good light", d: "Daylight or a bright room" },
+          { icon: "scan-outline" as const, t: "From above", d: "Fill the frame with the plate" },
+          { icon: "restaurant-outline" as const, t: "One dish at a time", d: "Scan each dish of a thali separately" },
+        ].map((tip, i) => (
+          <View key={tip.t}>
+            {i > 0 && <View style={styles.divider} />}
+            <ListRow icon={tip.icon} title={tip.t} detail={tip.d} />
+          </View>
         ))}
-      </ScrollView>
-    </ScrollView>
+      </Card>
+
+      <Card variant="flat">
+        <ListRow
+          icon="book-outline"
+          title="Food library"
+          detail="Look up carbs without a photo"
+          onPress={() => router.push("/library")}
+        />
+      </Card>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F7FF" },
-  header: { marginBottom: 24, marginTop: 40 },
-  title: { fontSize: 24, fontWeight: "700", color: "#111827" },
-  subtitle: { fontSize: 15, color: "#6B7280", marginTop: 8, lineHeight: 22 },
-
-  bigPrimary: {
-    backgroundColor: "#7C3AED",
-    borderRadius: 16,
-    paddingVertical: 18,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  bigPrimaryText: { color: "#fff", fontSize: 17, fontWeight: "600" },
-  bigSecondary: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingVertical: 16,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    marginBottom: 16,
-  },
-  bigSecondaryText: { color: "#7C3AED", fontSize: 16, fontWeight: "600" },
-  modelNote: {
-    textAlign: "center",
-    color: "#9CA3AF",
-    fontSize: 12,
-    marginBottom: 28,
-  },
-
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#111827" },
-
-  analyzingImage: { width: 180, height: 180, borderRadius: 20 },
-  analyzingTitle: { fontSize: 20, fontWeight: "700", marginTop: 8 },
-  analyzingSub: { color: "#6B7280", marginTop: 4 },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 14,
-  },
-  stepText: { fontSize: 15, color: "#9CA3AF" },
-
+  // Result
+  photoWrap: { marginBottom: 16 },
   resultImage: {
     width: "100%",
-    height: 220,
-    borderRadius: 20,
+    aspectRatio: 4 / 3,
+    maxHeight: 280,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceMuted,
     marginBottom: 16,
   },
-  badgeRow: { marginBottom: 10 },
-  dbBadge: {
-    backgroundColor: "#ECFDF5",
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  dbText: { color: "#059669", fontWeight: "600", fontSize: 13 },
-  foodName: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 18,
-  },
-  servingNote: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginTop: -12,
-    marginBottom: 16,
-  },
-  unknownBox: {
+  photoChip: {
+    position: "absolute",
+    top: 12,
+    left: 12,
     flexDirection: "row",
-    gap: 10,
-    backgroundColor: "#FFFBEB",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(15,27,45,0.7)",
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
   },
-  unknownText: {
-    flex: 1,
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: "#92400E",
-  },
-  macroGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 20,
-  },
-  // Two tiles per row. A width computed from the screen size ignored the
-  // card and page padding, so tiles wrapped one per row.
+  photoChipText: { color: "#fff", fontSize: 13.5, fontWeight: "700" },
+  foodName: { fontSize: 30, fontWeight: "800", color: colors.text, marginBottom: 16, letterSpacing: -0.4 },
+  cardTitle: { fontSize: 17, fontWeight: "800", color: colors.text, marginBottom: 12 },
+
+  unknownBox: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  unknownTitle: { fontSize: 16.5, fontWeight: "800", color: colors.text },
+  unknownText: { fontSize: 15, lineHeight: 22, color: colors.textMuted, marginTop: 4 },
+
+  carbHero: { padding: 22 },
+  carbLabel: { fontSize: 13, fontWeight: "800", letterSpacing: 1, color: colors.heroMuted },
+  carbRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 4 },
+  carbValue: { fontSize: 60, fontWeight: "800", color: colors.heroText, letterSpacing: -2, ...tabular },
+  carbUnit: { fontSize: 22, fontWeight: "700", color: colors.heroMuted },
+  carbFor: { fontSize: 15, color: colors.heroMuted, marginTop: 2 },
+  macroRow: { flexDirection: "row", gap: 8, marginTop: 18 },
   macroBox: {
-    flexGrow: 1,
-    flexBasis: "40%",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 12,
-  },
-  macroLabel: { fontSize: 11, color: "#6B7280", fontWeight: "600" },
-  macroVal: { fontSize: 18, fontWeight: "700", marginTop: 4 },
-  bolusRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flex: 1,
+    backgroundColor: colors.heroRaised,
+    borderRadius: radius.md,
+    paddingVertical: 12,
     alignItems: "center",
   },
-  bolusLabel: { fontSize: 15, fontWeight: "600" },
-  bolusValue: { fontSize: 22, fontWeight: "700", color: "#7C3AED" },
-  bolusNote: { fontSize: 12, color: "#9CA3AF", marginTop: 4, marginBottom: 20 },
-  primaryBtn: {
-    backgroundColor: "#7C3AED",
-    borderRadius: 14,
-    paddingVertical: 16,
+  macroVal: { fontSize: 18, fontWeight: "800", color: colors.heroText, ...tabular },
+  macroLabel: { fontSize: 13, color: colors.heroMuted, marginTop: 2 },
+
+  coverRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  coverLabel: { fontSize: 16.5, fontWeight: "800", color: colors.text },
+  coverNote: { fontSize: 13.5, color: colors.textMuted, marginTop: 3, lineHeight: 19 },
+  coverValueRow: { flexDirection: "row", alignItems: "baseline" },
+  coverValue: { fontSize: 32, fontWeight: "800", color: colors.primary, ...tabular },
+  splitWrap: { marginTop: 16, gap: 8 },
+  splitBar: { flexDirection: "row", height: 10, borderRadius: 5, overflow: "hidden", gap: 2 },
+  splitLegend: { flexDirection: "row", gap: 14 },
+  splitItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  splitDot: { width: 9, height: 9, borderRadius: 5 },
+  splitText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  analyzingSub: { fontSize: 15, color: colors.textMuted, marginTop: 4 },
+  coverUnit: { fontSize: 16, fontWeight: "700", color: colors.textMuted },
+
+  actions: { gap: 10, marginTop: 8 },
+
+  divider: { height: 1, backgroundColor: colors.divider },
+  tipLine: { fontSize: 14, color: colors.textMuted, textAlign: "center", marginTop: 14 },
+
+  // Analyzing
+  analyzingImage: { width: 200, height: 200, borderRadius: radius.xl },
+  analyzingTitle: { fontSize: 22, fontWeight: "800", color: colors.text },
+  steps: { marginTop: 26, gap: 14, alignSelf: "stretch", paddingHorizontal: 30 },
+  stepRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stepText: { fontSize: 16, color: colors.textFaint, fontWeight: "600" },
+
+  // Default
+  cameraCard: { alignItems: "center", padding: 24, borderRadius: radius.xl, marginBottom: 16 },
+  cameraIcon: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.heroRaised,
     alignItems: "center",
-    marginBottom: 10,
+    justifyContent: "center",
+    marginBottom: 14,
   },
-  primaryBtnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  secondaryBtn: {
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  secondaryBtnText: { color: "#374151", fontWeight: "600" },
-  loggedBtn: { borderColor: "#10B981", backgroundColor: "#ECFDF5" },
-  loggedBtnText: { color: "#059669" },
-  retryBtn: { paddingVertical: 10, alignItems: "center" },
-  retryBtnText: { color: "#9CA3AF", fontWeight: "600", fontSize: 13 },
+  cameraTitle: { fontSize: 22, fontWeight: "800", color: colors.heroText },
+  cameraSub: { fontSize: 15, color: colors.heroMuted, marginTop: 4, textAlign: "center" },
+  takeBtn: { backgroundColor: colors.primary, borderColor: colors.primary },
 });

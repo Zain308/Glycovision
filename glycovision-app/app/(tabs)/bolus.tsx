@@ -1,15 +1,17 @@
 // app/(tabs)/bolus.tsx
+//
+// Research bolus estimate. The result is the hero (one big number, then
+// how it was built); inputs are large number fields with their units, split
+// into "this meal" and "your settings". Validation and safety logic are
+// unchanged from the previous design.
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Text, TextInput } from "@/components/ui/Typography";
 import {
   calculateIntervention,
   getProfile,
@@ -19,8 +21,50 @@ import {
   getCurrentIob,
 } from "@/services/api";
 import { Card } from "@/components/ui/Card";
-import { validateClinicalSettings } from "@/constants/clinicalLimits";
+import { NotificationBell } from "@/components/NotificationBell";
+import { AnimatedNumber } from "@/components/ui/Motion";
+import { haptic } from "@/lib/haptics";
+import { Screen } from "@/components/ui/Screen";
+import { Button } from "@/components/ui/Button";
+import { IconBadge, SectionHeader, StatusPill } from "@/components/ui/Bits";
+import { ResearchNote } from "@/components/ui/ResearchNote";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors, radius, tabular } from "@/constants/theme";
+import { LIMITS, validateClinicalSettings } from "@/constants/clinicalLimits";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
+
+function NumberField({
+  label,
+  unit,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  unit: string;
+  value: string;
+  onChange: (v: string) => void;
+  hint?: string;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.fieldBox}>
+        <TextInput
+          style={styles.fieldInput}
+          keyboardType="decimal-pad"
+          value={value}
+          onChangeText={onChange}
+          accessibilityLabel={`${label} in ${unit}`}
+          placeholder="—"
+          placeholderTextColor={colors.textFaint}
+        />
+        <Text style={styles.fieldUnit}>{unit}</Text>
+      </View>
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    </View>
+  );
+}
 
 export default function BolusScreen() {
   const [currentBg, setCurrentBg] = useState("");
@@ -183,6 +227,14 @@ export default function BolusScreen() {
       return;
     }
 
+    if (parsedTotalCarbs > LIMITS.mealCarbs.max) {
+      Alert.alert(
+        "Check the carbs",
+        `${parsedTotalCarbs} g is more than one meal can hold (max ${LIMITS.mealCarbs.max} g). Did you mean ${Math.round(parsedTotalCarbs / 10)} g?`,
+      );
+      return;
+    }
+
     if (parsedIcr <= 1 || parsedIcr >= 50) {
       Alert.alert(
         "Invalid ICR",
@@ -206,6 +258,7 @@ export default function BolusScreen() {
       });
 
       setResult(data);
+      haptic.success();
     } catch (e: any) {
       console.error("Research bolus calculation failed:", e?.message || e);
       Alert.alert(
@@ -231,6 +284,7 @@ export default function BolusScreen() {
       });
 
       setDoseLogged(true);
+      haptic.success();
 
       // Refresh backend-derived IOB immediately after logging.
       const iobData = await getCurrentIob();
@@ -275,282 +329,214 @@ export default function BolusScreen() {
     }
   };
 
+
   if (profileLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: "center", alignItems: "center" },
-        ]}
-      >
-        <ActivityIndicator size="large" color="#7C3AED" />
-      </View>
+      <Screen scroll={false} contentStyle={{ justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </Screen>
     );
   }
 
+  const iobNum = parseFloat(iob);
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ padding: 20, paddingBottom: 50 }}
-    >
-      <Text style={styles.screenTitle}>Research Bolus Estimate</Text>
-
+    <Screen title="Insulin estimate" subtitle="Research calculator. Always follow your care team's advice." right={<NotificationBell />}>
       {result && (
-        <Card style={{ backgroundColor: "#F5F3FF" }}>
-          <Text style={styles.recLabel}>RESEARCH BOLUS ESTIMATE</Text>
-          <Text style={styles.recValue}>
-            {result.recommended_total_dose_units}{" "}
-            <Text style={styles.units}>units</Text>
-          </Text>
-          <Text style={styles.formula}>{result.strategy}</Text>
+        <Card variant="hero" style={styles.resultCard}>
+          <Text style={styles.resultLabel}>ESTIMATED DOSE</Text>
+          <View style={styles.resultRow}>
+            <AnimatedNumber value={Number(result.recommended_total_dose_units)} decimals={1} style={styles.resultValue} />
+            <Text style={styles.resultUnit}>units</Text>
+          </View>
+          {result.strategy ? <Text style={styles.resultStrategy}>{result.strategy}</Text> : null}
 
-          <View style={styles.breakdown}>
-            <View style={styles.breakRow}>
-              <Text>Meal coverage</Text>
-              <Text style={styles.breakVal}>
-                +{result.breakdown.carb_dose_units} u
-              </Text>
-            </View>
-            <View style={styles.breakRow}>
-              <Text>BG correction</Text>
-              <Text style={styles.breakVal}>
-                +{result.breakdown.correction_dose_units} u
-              </Text>
-            </View>
-            <View style={styles.breakRow}>
-              <Text>IOB subtracted</Text>
-              <Text style={styles.breakVal}>
-                -{Number(result.breakdown.iob_subtracted ?? 0).toFixed(1)} u
-              </Text>
-            </View>
+          {/* How the dose is built: meal + correction, minus insulin still active */}
+          <View style={styles.doseBar}>
+            {[
+              { k: "meal", v: Math.max(0, Number(result.breakdown.carb_dose_units) || 0), c: colors.primary },
+              { k: "corr", v: Math.max(0, Number(result.breakdown.correction_dose_units) || 0), c: colors.warning },
+              { k: "iob", v: Math.max(0, Number(result.breakdown.iob_subtracted) || 0), c: "#C9D6EA" },
+            ]
+              .filter((s) => s.v > 0)
+              .map((s) => (
+                <View key={s.k} style={{ flex: s.v, backgroundColor: s.c }} />
+              ))}
           </View>
 
-          {result.safety_flags?.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              {result.safety_flags.map((flag: string, i: number) => (
-                <Text key={i} style={styles.flagText}>
-                  ⚠ {flag}
-                </Text>
-              ))}
-            </View>
-          )}
-          <Text style={styles.disclaimer}>{result.disclaimer}</Text>
-
-          <TouchableOpacity
-            style={[
-              styles.logBtn,
-              doseLogged && styles.loggedBtn,
-            ]}
-            onPress={handleLogDose}
-            disabled={loggingDose || doseLogged}
-          >
-            {loggingDose ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.logBtnText}>
-                {doseLogged ? "✓ Logged" : "Log Research Estimate"}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.breakdown}>
+            {[
+              { l: "For the meal", v: `+${result.breakdown.carb_dose_units}`, c: colors.primary },
+              { l: "To correct high sugar", v: `+${result.breakdown.correction_dose_units}`, c: colors.warning },
+              { l: "Insulin still active", v: `−${Number(result.breakdown.iob_subtracted ?? 0).toFixed(1)}`, c: "#C9D6EA" },
+            ].map((r) => (
+              <View key={r.l} style={styles.breakRow}>
+                <View style={styles.breakLabelRow}>
+                  <View style={[styles.breakDot, { backgroundColor: r.c }]} />
+                  <Text style={styles.breakLabel}>{r.l}</Text>
+                </View>
+                <Text style={styles.breakVal}>{r.v} u</Text>
+              </View>
+            ))}
+          </View>
         </Card>
       )}
 
+      {result && (
+        <>
+          {result.safety_flags?.length > 0 && (
+            <View style={styles.flagBox}>
+              {result.safety_flags.map((flag: string, i: number) => (
+                <View key={i} style={styles.flagRow}>
+                  <Ionicons name="warning" size={18} color={colors.dangerText} />
+                  <Text style={styles.flagText}>{flag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Stress from a recent voice check: advice only, dose unchanged. */}
+          {result.stress_context?.bolus_note ? (
+            <View style={styles.stressBox}>
+              <View style={styles.stressHeader}>
+                <Ionicons name="pulse" size={18} color={colors.warningText} />
+                <Text style={styles.stressTitle}>{result.stress_context.headline}</Text>
+              </View>
+              <Text style={styles.stressText}>{result.stress_context.bolus_note}</Text>
+            </View>
+          ) : null}
+
+          <Button
+            label={doseLogged ? "Saved to your history" : "Save this estimate"}
+            icon={doseLogged ? "checkmark-circle" : "bookmark-outline"}
+            variant={doseLogged ? "success" : "dark"}
+            onPress={handleLogDose}
+            loading={loggingDose}
+            disabled={doseLogged}
+          />
+          <ResearchNote label="Research prototype · not a prescription" details={result.disclaimer} />
+          <View style={{ height: 18 }} />
+        </>
+      )}
+
+      <SectionHeader title="This meal" />
       <Card>
-        <Text style={styles.sectionTitle}>Clinical Inputs</Text>
+        <View style={styles.fieldRow}>
+          <NumberField label="Blood sugar now" unit="mg/dL" value={currentBg} onChange={editInput(setCurrentBg)} />
+          <NumberField label="Carbs" unit="g" value={totalCarbs} onChange={editInput(setTotalCarbs)} />
+        </View>
 
         <View style={styles.iobBox}>
-          <View>
-            <Text style={styles.iobLabel}>Estimated Active IOB</Text>
-            <Text style={styles.iobNote}>
-              Loaded from your logged bolus history
-            </Text>
+          <IconBadge tone="brand" size={40} renderIcon={(c, s) => <MaterialCommunityIcons name="needle" size={s} color={c} />} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.iobLabel}>Insulin still active</Text>
+            <Text style={styles.iobNote}>From your logged doses</Text>
           </View>
-          <Text style={styles.iobValue}>
-            {Number.isFinite(parseFloat(iob))
-              ? `${parseFloat(iob).toFixed(1)} U`
-              : "—"}
-          </Text>
+          <Text style={styles.iobValue}>{Number.isFinite(iobNum) ? `${iobNum.toFixed(1)} u` : "—"}</Text>
         </View>
 
-        {[
-          { label: "Current BG (mg/dL)", value: currentBg, set: editInput(setCurrentBg) },
-          { label: "Target BG (mg/dL)", value: targetBg, set: editInput(setTargetBg) },
-          { label: "Total Carbs (g)", value: totalCarbs, set: editInput(setTotalCarbs) },
-          { label: "ICR (1:x)", value: icr, set: editInput(setIcr) },
-          { label: "ISF (mg/dL per unit)", value: isf, set: editInput(setIsf) },
-        ].map((f, i) => (
-          <View key={i} style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{f.label}</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={f.value}
-              onChangeText={f.set}
-            />
-          </View>
-        ))}
-
-        <TouchableOpacity
-          style={styles.calcBtn}
-          onPress={handleCalculate}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.calcBtnText}>Calculate Dose</Text>
-          )}
-        </TouchableOpacity>
+        <Button label="Calculate dose" icon="calculator" onPress={handleCalculate} loading={loading} style={{ marginTop: 16 }} />
       </Card>
 
+      <SectionHeader title="Your settings" action={saving ? "Saving…" : "Save"} onAction={handleSaveProfile} />
       <Card>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 14,
-          }}
-        >
-          <Text style={styles.sectionTitle}>Clinical Profile</Text>
-          <TouchableOpacity onPress={handleSaveProfile} disabled={saving}>
-            <Text style={styles.saveLink}>
-              {saving ? "Saving..." : "Save as my profile"}
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.fieldRow}>
+          <NumberField label="Target sugar" unit="mg/dL" value={targetBg} onChange={editInput(setTargetBg)} />
+          <NumberField label="Carb ratio" unit="g/u" value={icr} onChange={editInput(setIcr)} hint="1 unit per … g carbs" />
         </View>
-        <View style={styles.profileGrid}>
-          <View style={styles.profileItem}>
-            <Text style={styles.profileLabel}>ICR</Text>
-            <Text style={styles.profileVal}>1 : {icr}</Text>
-          </View>
-          <View style={styles.profileItem}>
-            <Text style={styles.profileLabel}>ISF</Text>
-            <Text style={styles.profileVal}>{isf} mg/dL/u</Text>
-          </View>
-          <View style={styles.profileItem}>
-            <Text style={styles.profileLabel}>TARGET</Text>
-            <Text style={styles.profileVal}>{targetBg} mg/dL</Text>
-          </View>
-          <View style={styles.profileItem}>
-            <Text style={styles.profileLabel}>DIA</Text>
-            <Text style={styles.profileVal}>{diaHours} h</Text>
+        <View style={styles.fieldRow}>
+          <NumberField label="Sensitivity" unit="mg/dL/u" value={isf} onChange={editInput(setIsf)} hint="Drop per 1 unit" />
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Insulin action</Text>
+            <View style={[styles.fieldBox, styles.fieldReadOnly]}>
+              <Text style={styles.fieldInput}>{diaHours}</Text>
+              <Text style={styles.fieldUnit}>h</Text>
+            </View>
+            <Text style={styles.fieldHint}>Set in Profile</Text>
           </View>
         </View>
+        <StatusPill tone="neutral" icon="information-circle" label="Ask your doctor for these numbers" style={{ marginTop: 4 }} />
       </Card>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F7FF" },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginTop: 40,
-    marginBottom: 16,
-    color: "#111827",
-  },
-
-  recLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#7C3AED",
-    letterSpacing: 0.5,
-  },
-  recValue: { fontSize: 42, fontWeight: "800", color: "#111827", marginTop: 4 },
-  units: { fontSize: 18, fontWeight: "500", color: "#6B7280" },
-  formula: { fontSize: 13, color: "#6B7280", marginBottom: 16 },
-  breakdown: { borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 12 },
-  breakRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  breakVal: { fontWeight: "600" },
-  flagText: {
-    color: "#D97706",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  disclaimer: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 14,
-    fontStyle: "italic",
-  },
-  logBtn: {
-    backgroundColor: "#111827",
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    marginTop: 14,
-  },
-  logBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  loggedBtn: {
-    backgroundColor: "#059669",
-  },
-
-  iobBox: {
-    backgroundColor: "#F5F3FF",
-    borderRadius: 12,
+  // Result
+  resultCard: { padding: 22, borderRadius: radius.xl, marginBottom: 12 },
+  resultLabel: { fontSize: 13, fontWeight: "800", letterSpacing: 1, color: colors.heroMuted },
+  resultRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4 },
+  resultValue: { fontSize: 64, fontWeight: "800", color: colors.heroText, letterSpacing: -2, ...tabular },
+  resultUnit: { fontSize: 20, fontWeight: "700", color: colors.heroMuted },
+  resultStrategy: { fontSize: 14.5, color: colors.heroMuted, marginTop: 2 },
+  doseBar: { flexDirection: "row", height: 12, borderRadius: 6, overflow: "hidden", gap: 2, marginTop: 16 },
+  breakLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  breakDot: { width: 10, height: 10, borderRadius: 5 },
+  breakdown: {
+    marginTop: 16,
+    backgroundColor: colors.heroRaised,
+    borderRadius: radius.md,
     padding: 14,
-    marginBottom: 16,
+    gap: 10,
+  },
+  breakRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  breakLabel: { fontSize: 15.5, color: colors.heroMuted },
+  breakVal: { fontSize: 16, fontWeight: "800", color: colors.heroText, ...tabular },
+
+  flagBox: {
+    gap: 10,
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
+    marginBottom: 12,
+  },
+  flagRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  flagText: { flex: 1, color: colors.dangerText, fontSize: 15, lineHeight: 21, fontWeight: "700" },
+  stressBox: {
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.warningSoft,
+    gap: 6,
+    marginBottom: 12,
+  },
+  stressHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  stressTitle: { flex: 1, fontSize: 15.5, fontWeight: "800", color: colors.warningText },
+  stressText: { fontSize: 14.5, lineHeight: 21, color: colors.warningText },
+
+  // Fields
+  fieldRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
+  field: { flex: 1 },
+  fieldLabel: { fontSize: 14.5, fontWeight: "700", color: colors.textMuted, marginBottom: 8 },
+  fieldBox: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+    backgroundColor: colors.input,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    minHeight: 58,
   },
-  iobLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  iobNote: {
-    fontSize: 11,
-    color: "#6B7280",
-    marginTop: 3,
-  },
-  iobValue: {
+  fieldReadOnly: { backgroundColor: colors.surfaceMuted, opacity: 0.85 },
+  fieldInput: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 22,
     fontWeight: "800",
-    color: "#7C3AED",
+    color: colors.text,
+    paddingVertical: 10,
+    ...tabular,
   },
+  fieldUnit: { fontSize: 14, fontWeight: "700", color: colors.textFaint },
+  fieldHint: { fontSize: 13, color: colors.textFaint, marginTop: 6 },
 
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 14,
-    color: "#111827",
-  },
-  saveLink: { fontSize: 13, fontWeight: "600", color: "#7C3AED" },
-  inputGroup: { marginBottom: 14 },
-  inputLabel: { fontSize: 13, color: "#6B7280", marginBottom: 6 },
-  input: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  calcBtn: {
-    backgroundColor: "#7C3AED",
-    borderRadius: 14,
-    paddingVertical: 16,
+  iobBox: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
-  },
-  calcBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-
-  profileGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  profileItem: {
-    width: "47%",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
+    gap: 12,
+    backgroundColor: colors.primaryPale,
+    borderRadius: radius.md,
     padding: 14,
   },
-  profileLabel: { fontSize: 11, color: "#6B7280", fontWeight: "600" },
-  profileVal: { fontSize: 18, fontWeight: "700", marginTop: 4 },
+  iobLabel: { fontSize: 15.5, fontWeight: "800", color: colors.text },
+  iobNote: { fontSize: 13.5, color: colors.textMuted, marginTop: 2 },
+  iobValue: { fontSize: 22, fontWeight: "800", color: colors.primary, ...tabular },
 });

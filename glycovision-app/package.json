@@ -6,20 +6,28 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest"
   },
   "dependencies": {
+    "@expo-google-fonts/nunito": "^0.4.2",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "12.0.1",
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.112.3",
     "expo": "^58.0.0",
     "expo-audio": "~58.0.11",
     "expo-constants": "~58.0.15",
+    "expo-device": "~58.0.5",
     "expo-file-system": "~58.0.13",
     "expo-font": "~58.0.11",
+    "expo-haptics": "~58.0.8",
     "expo-image-picker": "~58.0.10",
+    "expo-linear-gradient": "~58.0.4",
     "expo-linking": "~58.0.16",
+    "expo-notifications": "~58.1.9",
     "expo-router": "~58.0.30",
     "expo-splash-screen": "~58.0.13",
     "expo-status-bar": "~58.0.4",
@@ -35,8 +43,23 @@
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.3.0",
+    "jest": "^30.5.2",
+    "jest-expo": "^58.0.14",
     "typescript": "~6.0.3"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "setupFiles": [
+      "<rootDir>/__tests__/setup.ts"
+    ],
+    "testMatch": [
+      "<rootDir>/__tests__/**/*.test.ts"
+    ]
+  }
 }

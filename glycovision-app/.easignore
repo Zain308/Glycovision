@@ -1,0 +1,34 @@
+# Files NOT uploaded to EAS Build (Expo installs node_modules itself).
+# Used because this app lives inside a larger git repository; without it
+# the upload was 1.0 GB instead of a few MB.
+
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+.kotlin/
+coverage/
+__tests__/
+
+# Secrets and signing files: never upload. Build variables come from EAS
+# environment variables (eas env:create), not .env.
+.env
+.env*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# Logs, caches, OS files
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.metro-health-check*
+*.tsbuildinfo
+*.orig.*
+.DS_Store
+expo-env.d.ts

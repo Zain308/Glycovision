@@ -1,16 +1,40 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-python-dotenv==1.0.1
-python-multipart==0.0.9
-ultralytics==8.2.0
-requests==2.32.3
-pydantic==2.8.2
-pydantic-settings==2.4.0
-numpy==1.26.4
-pillow==10.4.0
-google-generativeai
-praat-parselmouth
-pydub
-timm
-torch
-pillow
+# GlycoVision backend: exact versions the app is developed and tested with
+# (Python 3.14). Pinned so a server build behaves like the dev machine;
+# saved models (.joblib) in particular need matching scikit-learn/xgboost.
+#
+# torch and torchvision are installed separately from the CPU-only index
+# (see Dockerfile); locally: pip install torch==2.13.0 torchvision==0.28.0
+
+# Web API
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+python-multipart==0.0.32
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+httpx==0.28.1
+requests==2.34.2
+
+# Auth + database
+supabase==2.31.0
+PyJWT==2.13.0
+cryptography==50.0.0
+
+# Food model
+timm==1.0.31
+pillow==12.3.0
+
+# Spike prediction models
+numpy==2.4.6
+pandas==3.0.5
+scipy==1.18.0
+scikit-learn==1.9.0
+xgboost==3.4.1
+joblib==1.5.3
+
+# Voice check
+praat-parselmouth==0.4.7
+pydub==0.25.1
+
+# Tests (not needed on the server)
+# pytest

@@ -32,6 +32,7 @@ from services.app_spike_predictor import (
 from services.spike_intervention import (
     build_spike_intervention,
 )
+from services.stress_context import get_stress_context
 
 
 router = APIRouter(
@@ -283,6 +284,29 @@ def spike_intervention(
     ),
 ):
 
-    return build_spike_intervention(
+    guidance = build_spike_intervention(
         user_id
     )
+
+    # Combine with stress from a recent voice check, so the next step
+    # reflects both the glucose trend and how the user is doing.
+    try:
+        context = get_stress_context(user_id)
+    except Exception as error:
+        print("[Spike Intervention] Stress context unavailable:", repr(error))
+        context = None
+
+    if context and context.get("level") in ("possible", "elevated"):
+        guidance["stress_context"] = context
+        if guidance.get("severity") in ("moderate", "elevated"):
+            guidance["stress_note"] = (
+                "Your recent voice check also suggests stress, which can push "
+                "blood sugar higher. Check again in 30 to 60 minutes."
+            )
+        else:
+            guidance["stress_note"] = (
+                "Your recent voice check suggests stress. Stress can raise blood "
+                "sugar over the next few hours, so check a little more often today."
+            )
+
+    return guidance

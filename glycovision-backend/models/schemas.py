@@ -3,6 +3,14 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+# Upper limits that catch typos (6000 g instead of 60 g) instead of
+# silently capping them. A single meal above 500 g of carbohydrate is not
+# realistic; insulin on board above 50 u is more than the largest dose the
+# app accepts (BolusLogRequest.dose_units <= 50).
+MAX_MEAL_CARBS_G = 500
+MAX_IOB_UNITS = 50
+
+
 # ---------------------------------------------------------
 # NUTRITION / FOOD SCANNER
 # ---------------------------------------------------------
@@ -22,6 +30,11 @@ class NutrientInfo(BaseModel):
     # Weight in grams that the nutrient values above describe. The app
     # scales them to the quantity the user picks.
     basis_grams: float = Field(default=100.0, gt=0)
+
+    # Where the values come from (food composition table and entry), and
+    # how close that entry is to the dish: exact, close or composite.
+    source: str = ""
+    match: str = ""
 
 
 class DetectedItem(BaseModel):
@@ -79,21 +92,25 @@ class MealLogRequest(BaseModel):
     carbs: float = Field(
         ...,
         ge=0,
+        le=MAX_MEAL_CARBS_G,
     )
 
     protein: float = Field(
         default=0.0,
         ge=0,
+        le=MAX_MEAL_CARBS_G,
     )
 
     fat: float = Field(
         default=0.0,
         ge=0,
+        le=MAX_MEAL_CARBS_G,
     )
 
     calories: float = Field(
         default=0.0,
         ge=0,
+        le=10000,
     )
 
 
@@ -107,6 +124,7 @@ class BolusLogRequest(BaseModel):
     carbs: Optional[float] = Field(
         default=None,
         ge=0,
+        le=MAX_MEAL_CARBS_G,
     )
 
     current_bg: Optional[float] = Field(
@@ -177,11 +195,13 @@ class PatientState(BaseModel):
     iob: float = Field(
         default=0.0,
         ge=0,
+        le=MAX_IOB_UNITS,
     )
 
     total_carbs: float = Field(
         ...,
         ge=0,
+        le=MAX_MEAL_CARBS_G,
     )
 
     icr: float = Field(
@@ -211,6 +231,10 @@ class BolusResponse(BaseModel):
     safety_flags: List[str] = Field(
         default_factory=list
     )
+
+    # Stress context from a recent voice check (services.stress_context).
+    # It adds advice around the estimate; it never changes the dose.
+    stress_context: Optional[dict] = None
 
     # Temporary backward compatibility
     stress_score: Optional[float] = None
@@ -298,6 +322,7 @@ class SpikePredictionRequest(BaseModel):
     carbs: float = Field(
         default=0,
         ge=0,
+        le=MAX_MEAL_CARBS_G,
     )
 
     protein: float = Field(
@@ -313,6 +338,7 @@ class SpikePredictionRequest(BaseModel):
     iob: float = Field(
         default=0,
         ge=0,
+        le=MAX_IOB_UNITS,
     )
 
     recent_bolus: float = Field(

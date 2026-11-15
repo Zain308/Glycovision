@@ -4,7 +4,7 @@ from functools import lru_cache
 
 import torch
 import torch.nn.functional as F
-from PIL import Image
+from PIL import Image, ImageOps
 from torchvision import transforms
 import timm
 
@@ -28,10 +28,12 @@ MODEL_ARCH = "convnext_tiny"
 CONFIDENCE_THRESHOLD = 0.55
 
 
+# GLYCOVISION_DEVICE forces a device ("cpu" on Hugging Face ZeroGPU, where
+# a GPU only exists inside @spaces.GPU functions). Otherwise use CUDA when
+# available.
 device = torch.device(
-    "cuda"
-    if torch.cuda.is_available()
-    else "cpu"
+    os.environ.get("GLYCOVISION_DEVICE")
+    or ("cuda" if torch.cuda.is_available() else "cpu")
 )
 
 
@@ -97,7 +99,10 @@ class FoodClassifier:
                 f"Image not found: {image_path}"
             )
 
-        image = Image.open(image_path).convert("RGB")
+        # Phone photos are often stored sideways with an EXIF orientation
+        # flag; apply it so the model sees the plate the right way up
+        # (training photos were prepared the same way).
+        image = ImageOps.exif_transpose(Image.open(image_path)).convert("RGB")
 
         image_tensor = (
             inference_transform(image)

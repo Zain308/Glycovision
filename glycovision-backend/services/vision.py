@@ -1,5 +1,8 @@
 import base64
+import json
 import re
+from pathlib import Path
+
 import requests
 
 from models.schemas import NutrientInfo, DetectedItem
@@ -40,130 +43,37 @@ no food
 
 
 # ---------------------------------------------------------
-# LOCAL NUTRITION FALLBACK DATABASE
+# NUTRITION TABLE (published sources, per 100 g)
 # ---------------------------------------------------------
 
-FALLBACK = {
-    "aloo gobi": {
-        "carbs": 18,
-        "protein": 5,
-        "fat": 9,
-        "calories": 170,
-        "volume": "1 bowl (~200g)",
-    },
+# Built by ml/nutrition/build_nutrition_table.py from the Indian Nutrient
+# Databank (INDB 2024.11) and USDA FoodData Central. Each entry names its
+# source rows, so every value can be traced and cited.
+NUTRITION_TABLE = json.loads(
+    (Path(__file__).resolve().parent / "nutrition_table.json").read_text(encoding="utf-8")
+)["dishes"]
 
-    "bhindi fry": {
-        "carbs": 12,
-        "protein": 3,
-        "fat": 10,
-        "calories": 150,
-        "volume": "1 bowl (~180g)",
-    },
 
-    "biryani": {
-        "carbs": 62,
-        "protein": 22,
-        "fat": 18,
-        "calories": 486,
-        "volume": "1 plate (~250g)",
-    },
-
-    "butter chicken": {
-        "carbs": 10,
-        "protein": 28,
-        "fat": 32,
-        "calories": 420,
-        "volume": "1 bowl (~250g)",
-    },
-
-    "chai": {
-        "carbs": 15,
-        "protein": 3,
-        "fat": 4,
-        "calories": 100,
-        "volume": "1 cup (~200ml)",
-    },
-
-    "chapati": {
-        "carbs": 33,
-        "protein": 6,
-        "fat": 3,
-        "calories": 170,
-        "volume": "1 piece (~60g)",
-    },
-
-    "chicken tikka": {
-        "carbs": 4,
-        "protein": 30,
-        "fat": 14,
-        "calories": 260,
-        "volume": "4-5 pieces (~200g)",
-    },
-
-    "haleem": {
-        "carbs": 30,
-        "protein": 20,
-        "fat": 15,
-        "calories": 350,
-        "volume": "1 bowl (~300g)",
-    },
-
-    "paratha": {
-        "carbs": 40,
-        "protein": 6,
-        "fat": 15,
-        "calories": 320,
-        "volume": "1 piece (~90g)",
-    },
-
-    "karahi": {
-        "carbs": 8,
-        "protein": 42,
-        "fat": 28,
-        "calories": 452,
-        "volume": "1 serving (~300g)",
-    },
-
-    "naan": {
-        "carbs": 45,
-        "protein": 9,
-        "fat": 6,
-        "calories": 262,
-        "volume": "1 piece (~100g)",
-    },
-
-    "samosa": {
-        "carbs": 24,
-        "protein": 4,
-        "fat": 12,
-        "calories": 220,
-        "volume": "1 piece (~80g)",
-    },
-
-    "burger": {
-        "carbs": 42,
-        "protein": 24,
-        "fat": 18,
-        "calories": 480,
-        "volume": "1 burger",
-    },
-
-    "pizza": {
-        "carbs": 36,
-        "protein": 14,
-        "fat": 12,
-        "calories": 290,
-        "volume": "1 slice",
-    },
-
-    "cake": {
-        "carbs": 45,
-        "protein": 5,
-        "fat": 18,
-        "calories": 350,
-        "volume": "1 slice (~100g)",
-    },
-}
+def _table_nutrition(food_query: str) -> NutrientInfo | None:
+    key = food_query.strip().lower().replace(" ", "_")
+    entry = NUTRITION_TABLE.get(key)
+    if entry is None:
+        return None
+    v = entry["per_100g"]
+    parts = entry["parts"]
+    source = "; ".join(f"{p['source']}: {p['name']} ({p['code']})" for p in parts)
+    return NutrientInfo(
+        name=key.replace("_", " ").title(),
+        carbs=v["carbs"],
+        protein=v["protein"],
+        fat=v["fat"],
+        calories=v["calories"],
+        fiber=v["fiber"],
+        volume="100 g",
+        basis_grams=100.0,
+        source=source,
+        match=entry["match"],
+    )
 
 
 # ---------------------------------------------------------
@@ -262,6 +172,16 @@ def detect_food(image_path: str) -> dict | None:
         if fallback_result:
             return fallback_result
 
+    # Unsure but probably food: let the user pick from the model's guesses
+    # instead of saying "no food".
+    if not classified_not_food:
+        suggestions = [
+            p for p in prediction.get("top_predictions", [])
+            if p["food_name"] != "not_food"
+        ]
+        if suggestions:
+            return {"unsure": True, "suggestions": suggestions}
+
     return None
 
 
@@ -276,6 +196,12 @@ def fetch_nutrition(food_query: str) -> NutrientInfo | None:
     Never invent values: carbs from this function can feed the bolus
     calculator, so an unknown dish must be reported as unknown.
     """
+
+    # Published table first: sourced values for every dish the model knows.
+    table_hit = _table_nutrition(food_query)
+    if table_hit is not None:
+        return table_hit
+
 
     api_key = (
         settings.calorieninjas_api_key
@@ -382,40 +308,6 @@ def fetch_nutrition(food_query: str) -> NutrientInfo | None:
                 f"[Nutrition API error] {exc}"
             )
 
-    # ----------------------------
-    # Local fallback
-    # ----------------------------
-
-    query = food_query.lower()
-
-    for key, value in FALLBACK.items():
-
-        if key in query:
-
-            # Table values describe the portion in "volume", e.g.
-            # "1 plate (~250g)". Read its weight; entries without one
-            # ("1 burger") describe one typical unit of that dish.
-            weight = re.search(
-                r"~\s*(\d+(?:\.\d+)?)\s*(?:g|ml)\b",
-                value["volume"],
-            )
-            basis_grams = (
-                float(weight.group(1))
-                if weight
-                else portion_for(key)["unit_grams"]
-            )
-
-            return NutrientInfo(
-                name=food_query.replace("_", " ").title(),
-                carbs=value["carbs"],
-                protein=value["protein"],
-                fat=value["fat"],
-                calories=value["calories"],
-                fiber=0.0,
-                volume=value["volume"],
-                basis_grams=basis_grams,
-            )
-
     # Unknown food: report it instead of inventing values.
     return None
 
@@ -445,6 +337,38 @@ def analyze_image(file_path: str) -> dict:
 
             "suggested_bolus": None,
         }
+
+    if detected.get("unsure"):
+
+        return {
+            "status": "Not sure",
+            "summary": {
+                "total_estimated_carbs": 0,
+                "total_protein": 0,
+                "total_fat": 0,
+                "total_calories": 0,
+            },
+            "ai_found": [],
+            # The model's best guesses, for the app to offer as choices.
+            "suggestions": [
+                {
+                    "food_name": s["food_name"],
+                    "display_name": s["food_name"].replace("_", " ").title(),
+                    "confidence": s["confidence"],
+                }
+                for s in detected["suggestions"]
+            ],
+            "suggested_bolus": None,
+        }
+
+    return build_dish_result(detected)
+
+
+def build_dish_result(detected: dict) -> dict:
+    """
+    Nutrition, portion and display data for one dish. `detected` holds
+    food_name (model class name), confidence and source.
+    """
 
     food_name = detected["food_name"]
 

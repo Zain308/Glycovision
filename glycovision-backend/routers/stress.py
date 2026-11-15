@@ -27,6 +27,8 @@ from services.voice_deviation import (
     compare_to_personal_baseline,
 )
 
+from services.stress_context import get_stress_context
+
 
 router = APIRouter(
     prefix="/api/v1",
@@ -212,8 +214,22 @@ async def stress_analyze(
         # 6. RETURN COMPLETE RESPONSE
         # -------------------------------------------------
 
+        # What this recording means for the user, using the comparison
+        # just calculated (before the baseline was refreshed).
+        try:
+            stress_context = get_stress_context(
+                user_id,
+                comparison=comparison,
+            )
+        except Exception as error:
+            print("[Voice] Stress context unavailable:", repr(error))
+            stress_context = None
+
         response = {
             **result,
+
+            "stress_context":
+                stress_context,
 
             "personal_comparison":
                 comparison,
@@ -592,4 +608,26 @@ def saved_voice_baseline(
             detail=(
                 "Could not load the saved voice baseline."
             ),
+        )
+
+# ---------------------------------------------------------
+# STRESS CONTEXT
+# ---------------------------------------------------------
+
+@router.get("/stress-context")
+def stress_context(
+    user_id: str = Depends(get_current_user),
+):
+    """
+    Stress signal and advice from the latest reliable voice check in the
+    last few hours. Used by the Dashboard and Bolus screens. Experimental:
+    it shapes advice and never changes an insulin dose.
+    """
+    try:
+        return get_stress_context(user_id)
+    except Exception as error:
+        print("[Stress Context Error]", repr(error))
+        raise HTTPException(
+            status_code=500,
+            detail="Could not load stress context.",
         )

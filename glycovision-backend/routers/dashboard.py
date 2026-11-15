@@ -60,3 +60,51 @@ def dashboard_summary(user_id: str = Depends(get_current_user)):
         "time_in_range_pct": time_in_range_pct,
         "bg_readings_today": len(bg_readings),
     }
+
+@router.get("/timeline-today")
+def timeline_today(user_id: str = Depends(get_current_user)):
+    """
+    Today's meals, insulin doses and blood sugar readings in time order,
+    newest first, for the home screen timeline.
+    """
+    db = get_db()
+    profile = get_profile_row(db, user_id) or {}
+    today_start = local_day_start_utc_iso(user_timezone(profile))
+
+    def rows(table: str, columns: str):
+        res = (
+            db.table(table).select(columns)
+            .eq("user_id", user_id)
+            .gte("logged_at", today_start)
+            .order("logged_at", desc=True)
+            .limit(30)
+            .execute()
+        )
+        return res.data or []
+
+    events = []
+    for m in rows("meals", "food_name, carbs, calories, logged_at"):
+        events.append({
+            "type": "meal",
+            "title": m.get("food_name") or "Meal",
+            "detail": f"{round(m.get('carbs') or 0)} g carbs · {round(m.get('calories') or 0)} kcal",
+            "logged_at": m["logged_at"],
+        })
+    for b in rows("bolus_logs", "dose_units, carbs, logged_at"):
+        events.append({
+            "type": "insulin",
+            "title": f"{b.get('dose_units')} u insulin",
+            "detail": f"For {round(b.get('carbs') or 0)} g carbs" if b.get("carbs") else "Research estimate saved",
+            "logged_at": b["logged_at"],
+        })
+    for r in rows("bg_readings", "value, logged_at"):
+        events.append({
+            "type": "bg",
+            "title": f"{round(r.get('value') or 0)} mg/dL",
+            "detail": "Blood sugar reading",
+            "value": r.get("value"),
+            "logged_at": r["logged_at"],
+        })
+
+    events.sort(key=lambda e: e["logged_at"], reverse=True)
+    return {"events": events[:30]}

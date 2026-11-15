@@ -1,0 +1,163 @@
+{
+  "_comment": "Text prompts for clip_filter.py. A photo is kept when CLIP gives the 'keep' prompts at least half of the probability against 'keep' + 'reject' + generic_reject. Keys are source folder names.",
+  "generic_reject": [
+    "a plant or tree growing outdoors",
+    "a farm field with crops",
+    "a flower",
+    "a sunset or landscape",
+    "a poster or advertisement with lots of text",
+    "a cookbook cover or recipe card",
+    "a person's face",
+    "a jar of jam or jelly",
+    "a cake or pastry",
+    "a mixed salad",
+    "a cooked meal with meat"
+  ],
+  "classes": {
+    "rice": {
+      "keep": [
+        "a plate of plain cooked white rice",
+        "a bowl of steamed white rice"
+      ],
+      "reject": [
+        "rice plants in a paddy field",
+        "uncooked rice grains in a sack",
+        "fried rice with vegetables",
+        "sushi",
+        "a rice dish with chicken"
+      ]
+    },
+    "orange": {
+      "keep": [
+        "a whole orange fruit",
+        "oranges or mandarins",
+        "a peeled or sliced orange"
+      ],
+      "reject": [
+        "a glass of orange juice",
+        "an orange coloured object that is not fruit"
+      ]
+    },
+    "guava": {
+      "keep": [
+        "a whole guava fruit",
+        "a sliced guava fruit"
+      ],
+      "reject": [
+        "guava jelly or sweets",
+        "a curry or cooked dish",
+        "a drink"
+      ]
+    },
+    "dates": {
+      "keep": [
+        "dates fruit (khajoor) on a plate",
+        "a bowl of dried dates"
+      ],
+      "reject": [
+        "a dessert bar or cake made with dates",
+        "a cooked dish",
+        "a smoothie or drink"
+      ]
+    },
+    "milk": {
+      "keep": [
+        "a glass of milk",
+        "milk being poured into a glass"
+      ],
+      "reject": [
+        "a cup of coffee or hot chocolate",
+        "a soup or curry",
+        "a bowl of cereal",
+        "a milk carton in a shop"
+      ]
+    },
+    "grapes": {
+      "keep": [
+        "a bunch of grapes",
+        "a bowl of grapes"
+      ],
+      "reject": [
+        "a dessert with grapes",
+        "a glass of wine",
+        "a salad with grapes"
+      ]
+    },
+    "yoghurt": {
+      "keep": [
+        "a bowl of plain yogurt",
+        "a bowl of yogurt with fruit"
+      ],
+      "reject": [
+        "a glass of milkshake or smoothie",
+        "an ice cream sundae"
+      ]
+    },
+    "apple": {
+      "keep": [
+        "an apple fruit",
+        "sliced apples"
+      ],
+      "reject": [
+        "an apple pie",
+        "a different fruit"
+      ]
+    },
+    "banana": {
+      "keep": [
+        "a banana",
+        "a bunch of ripe bananas"
+      ],
+      "reject": [
+        "a banana flower",
+        "banana bread or cake"
+      ]
+    },
+    "mango": {
+      "keep": [
+        "a ripe mango fruit",
+        "sliced or cubed mango"
+      ],
+      "reject": [
+        "a mango drink or dessert"
+      ]
+    },
+    "Sampel Telur Goreng": {
+      "keep": [
+        "a fried egg, sunny side up",
+        "fried eggs with runny yolk in a pan"
+      ],
+      "reject": [
+        "an omelette",
+        "scrambled eggs",
+        "a rolled egg omelette",
+        "crispy fried egg batter",
+        "boiled eggs"
+      ]
+    },
+    "Sampel Telur Rebus": {
+      "keep": [
+        "boiled eggs",
+        "halved hard boiled eggs"
+      ],
+      "reject": [
+        "a fried egg",
+        "an omelette",
+        "raw eggs in a carton"
+      ]
+    },
+    "shawarma": {
+      "keep": [
+        "a shawarma wrap",
+        "a chicken shawarma roll in pita bread"
+      ],
+      "reject": [
+        "a plate of salad",
+        "kebab skewers",
+        "a bowl of meat and rice",
+        "falafel",
+        "tacos"
+      ]
+    }
+  }
+}

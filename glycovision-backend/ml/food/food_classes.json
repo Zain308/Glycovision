@@ -1,0 +1,566 @@
+[
+ {
+  "slug": "biryani",
+  "name": "Biryani",
+  "group": "Rice",
+  "priority": 1
+ },
+ {
+  "slug": "chicken_pulao",
+  "name": "Chicken Pulao",
+  "group": "Rice",
+  "priority": 1
+ },
+ {
+  "slug": "daal_chawal",
+  "name": "Daal Chawal",
+  "group": "Rice",
+  "priority": 1
+ },
+ {
+  "slug": "fried_rice",
+  "name": "Fried Rice",
+  "group": "Rice",
+  "priority": 2
+ },
+ {
+  "slug": "plain_rice",
+  "name": "Plain Rice",
+  "group": "Rice",
+  "priority": 1
+ },
+ {
+  "slug": "nihari",
+  "name": "Nihari",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "chicken_karahi",
+  "name": "Chicken Karahi",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "mutton_karahi",
+  "name": "Mutton Karahi",
+  "group": "Curries",
+  "priority": 2
+ },
+ {
+  "slug": "chicken_qorma",
+  "name": "Chicken Qorma",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "aloo_gosht",
+  "name": "Aloo Gosht",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "chicken_salan",
+  "name": "Chicken Salan",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "haleem",
+  "name": "Haleem",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "paya",
+  "name": "Paya",
+  "group": "Curries",
+  "priority": 2
+ },
+ {
+  "slug": "keema",
+  "name": "Keema",
+  "group": "Curries",
+  "priority": 1
+ },
+ {
+  "slug": "kofta",
+  "name": "Kofta Curry",
+  "group": "Curries",
+  "priority": 2
+ },
+ {
+  "slug": "butter_chicken",
+  "name": "Butter Chicken",
+  "group": "Curries",
+  "priority": 2
+ },
+ {
+  "slug": "seekh_kebab",
+  "name": "Seekh Kebab",
+  "group": "BBQ & fried",
+  "priority": 1
+ },
+ {
+  "slug": "chapli_kebab",
+  "name": "Chapli Kebab",
+  "group": "BBQ & fried",
+  "priority": 1
+ },
+ {
+  "slug": "shami_kebab",
+  "name": "Shami Kebab",
+  "group": "BBQ & fried",
+  "priority": 1
+ },
+ {
+  "slug": "chicken_tikka",
+  "name": "Chicken Tikka",
+  "group": "BBQ & fried",
+  "priority": 1
+ },
+ {
+  "slug": "bbq",
+  "name": "BBQ Boti",
+  "group": "BBQ & fried",
+  "priority": 2
+ },
+ {
+  "slug": "chicken_wings",
+  "name": "Chicken Wings",
+  "group": "BBQ & fried",
+  "priority": 2
+ },
+ {
+  "slug": "broast",
+  "name": "Broast / Fried Chicken",
+  "group": "BBQ & fried",
+  "priority": 1
+ },
+ {
+  "slug": "fish_fry",
+  "name": "Fried Fish",
+  "group": "BBQ & fried",
+  "priority": 2
+ },
+ {
+  "slug": "daal",
+  "name": "Daal",
+  "group": "Lentils & beans",
+  "priority": 1
+ },
+ {
+  "slug": "chana",
+  "name": "Chana (Chickpea Curry)",
+  "group": "Lentils & beans",
+  "priority": 1
+ },
+ {
+  "slug": "lobia",
+  "name": "Lobia",
+  "group": "Lentils & beans",
+  "priority": 2
+ },
+ {
+  "slug": "aloo_gobi",
+  "name": "Aloo Gobi",
+  "group": "Vegetables",
+  "priority": 1
+ },
+ {
+  "slug": "bhindi",
+  "name": "Bhindi",
+  "group": "Vegetables",
+  "priority": 1
+ },
+ {
+  "slug": "saag",
+  "name": "Saag",
+  "group": "Vegetables",
+  "priority": 1
+ },
+ {
+  "slug": "karela",
+  "name": "Karela",
+  "group": "Vegetables",
+  "priority": 2
+ },
+ {
+  "slug": "baingan_bharta",
+  "name": "Baingan Bharta",
+  "group": "Vegetables",
+  "priority": 2
+ },
+ {
+  "slug": "mix_sabzi",
+  "name": "Mixed Vegetables",
+  "group": "Vegetables",
+  "priority": 1
+ },
+ {
+  "slug": "aloo_sabzi",
+  "name": "Aloo Sabzi",
+  "group": "Vegetables",
+  "priority": 1
+ },
+ {
+  "slug": "palak_paneer",
+  "name": "Palak Paneer",
+  "group": "Vegetables",
+  "priority": 2
+ },
+ {
+  "slug": "kadai_paneer",
+  "name": "Kadai Paneer",
+  "group": "Vegetables",
+  "priority": 2
+ },
+ {
+  "slug": "chapati",
+  "name": "Roti / Chapati",
+  "group": "Breads",
+  "priority": 1
+ },
+ {
+  "slug": "naan",
+  "name": "Naan",
+  "group": "Breads",
+  "priority": 1
+ },
+ {
+  "slug": "paratha",
+  "name": "Paratha",
+  "group": "Breads",
+  "priority": 1
+ },
+ {
+  "slug": "aloo_paratha",
+  "name": "Aloo Paratha",
+  "group": "Breads",
+  "priority": 1
+ },
+ {
+  "slug": "puri",
+  "name": "Puri",
+  "group": "Breads",
+  "priority": 2
+ },
+ {
+  "slug": "bread_slice",
+  "name": "Bread / Toast",
+  "group": "Breads",
+  "priority": 1
+ },
+ {
+  "slug": "bun",
+  "name": "Bun",
+  "group": "Breads",
+  "priority": 2
+ },
+ {
+  "slug": "halwa_puri",
+  "name": "Halwa Puri",
+  "group": "Breakfast & eggs",
+  "priority": 1
+ },
+ {
+  "slug": "omelette",
+  "name": "Omelette",
+  "group": "Breakfast & eggs",
+  "priority": 1
+ },
+ {
+  "slug": "fried_egg",
+  "name": "Fried Egg",
+  "group": "Breakfast & eggs",
+  "priority": 1
+ },
+ {
+  "slug": "boiled_egg",
+  "name": "Boiled Egg",
+  "group": "Breakfast & eggs",
+  "priority": 1
+ },
+ {
+  "slug": "cereal",
+  "name": "Cereal with Milk",
+  "group": "Breakfast & eggs",
+  "priority": 2
+ },
+ {
+  "slug": "samosa",
+  "name": "Samosa",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "pakora",
+  "name": "Pakora",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "chaat",
+  "name": "Chaat",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "gol_gappay",
+  "name": "Gol Gappay",
+  "group": "Snacks & fast food",
+  "priority": 2
+ },
+ {
+  "slug": "dahi_bhalla",
+  "name": "Dahi Bhalla",
+  "group": "Snacks & fast food",
+  "priority": 2
+ },
+ {
+  "slug": "spring_roll",
+  "name": "Spring Roll",
+  "group": "Snacks & fast food",
+  "priority": 2
+ },
+ {
+  "slug": "paratha_roll",
+  "name": "Paratha Roll",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "shawarma",
+  "name": "Shawarma",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "sandwich",
+  "name": "Sandwich",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "burger",
+  "name": "Burger",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "pizza",
+  "name": "Pizza",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "french_fries",
+  "name": "French Fries",
+  "group": "Snacks & fast food",
+  "priority": 1
+ },
+ {
+  "slug": "nuggets",
+  "name": "Chicken Nuggets",
+  "group": "Snacks & fast food",
+  "priority": 2
+ },
+ {
+  "slug": "biscuits",
+  "name": "Biscuits",
+  "group": "Snacks & fast food",
+  "priority": 2
+ },
+ {
+  "slug": "gulab_jamun",
+  "name": "Gulab Jamun",
+  "group": "Sweets",
+  "priority": 1
+ },
+ {
+  "slug": "jalebi",
+  "name": "Jalebi",
+  "group": "Sweets",
+  "priority": 1
+ },
+ {
+  "slug": "ras_malai",
+  "name": "Ras Malai",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "kheer",
+  "name": "Kheer",
+  "group": "Sweets",
+  "priority": 1
+ },
+ {
+  "slug": "gajar_halwa",
+  "name": "Gajar Halwa",
+  "group": "Sweets",
+  "priority": 1
+ },
+ {
+  "slug": "suji_halwa",
+  "name": "Suji Halwa",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "zarda",
+  "name": "Zarda",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "barfi",
+  "name": "Barfi / Mithai",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "kulfi",
+  "name": "Kulfi",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "ice_cream",
+  "name": "Ice Cream",
+  "group": "Sweets",
+  "priority": 1
+ },
+ {
+  "slug": "cake",
+  "name": "Cake",
+  "group": "Sweets",
+  "priority": 1
+ },
+ {
+  "slug": "cupcakes",
+  "name": "Cupcake",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "donuts",
+  "name": "Donut",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "brownie",
+  "name": "Brownie",
+  "group": "Sweets",
+  "priority": 2
+ },
+ {
+  "slug": "chai",
+  "name": "Chai",
+  "group": "Drinks",
+  "priority": 1
+ },
+ {
+  "slug": "lassi",
+  "name": "Lassi",
+  "group": "Drinks",
+  "priority": 1
+ },
+ {
+  "slug": "milk",
+  "name": "Milk",
+  "group": "Drinks",
+  "priority": 2
+ },
+ {
+  "slug": "soft_drink",
+  "name": "Soft Drink",
+  "group": "Drinks",
+  "priority": 1
+ },
+ {
+  "slug": "juice",
+  "name": "Fruit Juice",
+  "group": "Drinks",
+  "priority": 1
+ },
+ {
+  "slug": "coffee",
+  "name": "Coffee",
+  "group": "Drinks",
+  "priority": 2
+ },
+ {
+  "slug": "apple",
+  "name": "Apple",
+  "group": "Fruit",
+  "priority": 1
+ },
+ {
+  "slug": "banana",
+  "name": "Banana",
+  "group": "Fruit",
+  "priority": 1
+ },
+ {
+  "slug": "mango",
+  "name": "Mango",
+  "group": "Fruit",
+  "priority": 1
+ },
+ {
+  "slug": "orange",
+  "name": "Orange / Kinnow",
+  "group": "Fruit",
+  "priority": 1
+ },
+ {
+  "slug": "grapes",
+  "name": "Grapes",
+  "group": "Fruit",
+  "priority": 2
+ },
+ {
+  "slug": "watermelon",
+  "name": "Watermelon",
+  "group": "Fruit",
+  "priority": 2
+ },
+ {
+  "slug": "guava",
+  "name": "Guava",
+  "group": "Fruit",
+  "priority": 2
+ },
+ {
+  "slug": "dates",
+  "name": "Dates (Khajoor)",
+  "group": "Fruit",
+  "priority": 1
+ },
+ {
+  "slug": "raita",
+  "name": "Raita",
+  "group": "Sides",
+  "priority": 2
+ },
+ {
+  "slug": "salad",
+  "name": "Salad",
+  "group": "Sides",
+  "priority": 2
+ },
+ {
+  "slug": "yogurt",
+  "name": "Yogurt (Dahi)",
+  "group": "Sides",
+  "priority": 2
+ },
+ {
+  "slug": "not_food",
+  "name": "Not food (people, rooms, objects, screens)",
+  "group": "Required",
+  "priority": 1
+ }
+]

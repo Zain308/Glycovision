@@ -1,0 +1,23 @@
+{
+  "generic_reject": [
+    "a burger or sandwich",
+    "a plate of curry",
+    "a poster with lots of text",
+    "a person's face"
+  ],
+  "classes": {
+    "Crispy Chicken": {
+      "keep": [
+        "pieces of crispy fried chicken like KFC or broast",
+        "a bucket of fried chicken drumsticks"
+      ],
+      "reject": [
+        "chicken nuggets",
+        "chicken wings in red sauce",
+        "chilli chicken in sauce",
+        "chicken strips or tenders",
+        "grilled chicken"
+      ]
+    }
+  }
+}

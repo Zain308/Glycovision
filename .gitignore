@@ -13,3 +13,15 @@ HUPA-UCM Diabetes Dataset/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Food photo dataset (gigabytes): keep on disk or Kaggle, never in git.
+food-dataset/
+food-dataset-near-duplicates/
+downloads/
+kaggle-upload/
+
+# Built deploy bundles (backend Space copy with 1.3 GB of models)
+deploy/
+
+# Local build tools (eas-cli lives here, not in the app)
+tools/

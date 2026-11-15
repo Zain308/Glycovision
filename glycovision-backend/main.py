@@ -10,6 +10,7 @@ from routers import (
     spike,
 )
 from core.config import get_settings
+from core.rate_limit import RateLimitMiddleware
 
 
 settings = get_settings()
@@ -20,6 +21,9 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
 )
+
+# Per-caller request limits (429 when exceeded); see core/rate_limit.py.
+app.add_middleware(RateLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,4 +1,5 @@
 from fastapi import (
+    Query,
     APIRouter,
     File,
     UploadFile,
@@ -11,7 +12,9 @@ import shutil
 import threading
 import uuid
 
-from services.vision import analyze_image
+from services.vision import analyze_image, build_dish_result, NUTRITION_TABLE
+from services.portions import portion_for
+from services.food_classifier import get_food_classifier
 from services.job_manager import (
     create_job,
     set_job_result,
@@ -234,6 +237,61 @@ def analysis_status(
         "created_at":
             job["created_at"],
     }
+
+# ---------------------------------------------------------
+# DISH CHOSEN BY THE USER
+# ---------------------------------------------------------
+
+@router.get("/dish-nutrition/{food_name}")
+def dish_nutrition(
+    food_name: str,
+    # The model's probability for this dish (0-1), shown as "x% sure".
+    confidence: float | None = Query(default=None, ge=0, le=1),
+    user_id: str = Depends(get_current_user),
+):
+    """
+    Same result shape as a photo analysis, for a dish the user picked
+    from the scanner's suggestions when the model was unsure.
+    """
+
+    if food_name not in get_food_classifier().class_names or food_name == "not_food":
+        raise HTTPException(status_code=404, detail="Unknown dish")
+
+    return build_dish_result({
+        "food_name": food_name,
+        "confidence": confidence if confidence is not None else 1.0,
+        "source": "user_choice",
+    })
+
+
+# ---------------------------------------------------------
+# FOOD LIBRARY
+# ---------------------------------------------------------
+
+@router.get("/foods")
+def food_library(user_id: str = Depends(get_current_user)):
+    """
+    Every dish with published nutrition, per typical portion, for the
+    app's food library (search without a photo).
+    """
+
+    foods = []
+    for slug, entry in NUTRITION_TABLE.items():
+        portion = portion_for(slug)
+        per100 = entry["per_100g"]
+        factor = portion["unit_grams"] / 100.0
+        foods.append({
+            "food_name": slug,
+            "display_name": slug.replace("_", " ").title(),
+            "portion": portion,
+            "per_portion": {k: round(v * factor, 1) for k, v in per100.items()},
+            "per_100g": per100,
+            "match": entry["match"],
+            "source": "; ".join(p["source"] + ": " + p["name"] for p in entry["parts"]),
+        })
+    foods.sort(key=lambda f: f["display_name"])
+    return {"foods": foods}
+
 
 # ---------------------------------------------------------
 # LOG MEAL

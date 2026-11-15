@@ -7,6 +7,7 @@ from models.schemas import (
 )
 
 from services.bolus_engine import calculate_safe_bolus
+from services.stress_context import get_stress_context
 from services.iob_engine import (
     calculate_current_iob,
     effective_dia_hours,
@@ -35,7 +36,19 @@ def calculate_intervention(
     state: PatientState,
     user_id: str = Depends(get_current_user),
 ):
-    return calculate_safe_bolus(state)
+    result = calculate_safe_bolus(state)
+
+    # Attach stress context from a recent voice check. It adds advice
+    # beside the estimate and never changes the dose. A failure here must
+    # not block the calculation.
+    try:
+        context = get_stress_context(user_id)
+        if context.get("status") == "recent":
+            result.stress_context = context
+    except Exception as error:
+        print("[Bolus] Stress context unavailable:", repr(error))
+
+    return result
 
 
 # ---------------------------------------------------------

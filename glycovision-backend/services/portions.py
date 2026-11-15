@@ -86,6 +86,93 @@ _TABLE = {
     "cake": (SLICE, 100),
     "ice cream": (SCOOP, 65),
     "chai": (CUP, 200),
+
+    # ---- Names used by the GlycoVision model (ml/food/food_classes.json) ----
+
+    # Rice plates
+    "chicken pulao": (PLATE, 250),
+    "daal chawal": (PLATE, 300),
+    "plain rice": (PLATE, 200),
+    "halwa puri": (PLATE, 300),
+
+    # Salans, karahis and other curries
+    "nihari": (BOWL, 250),
+    "chicken karahi": (BOWL, 250),
+    "mutton karahi": (BOWL, 250),
+    "chicken qorma": (BOWL, 250),
+    "aloo gosht": (BOWL, 250),
+    "chicken salan": (BOWL, 250),
+    "paya": (BOWL, 250),
+    "keema": (BOWL, 200),
+    "kofta": (BOWL, 200),
+    "daal": (BOWL, 200),
+    "chana": (BOWL, 200),
+    "lobia": (BOWL, 200),
+    "palak paneer": (BOWL, 200),
+
+    # Sabzis
+    "bhindi": (BOWL, 150),
+    "saag": (BOWL, 200),
+    "karela": (BOWL, 150),
+    "baingan bharta": (BOWL, 150),
+    "mix sabzi": (BOWL, 150),
+    "aloo sabzi": (BOWL, 150),
+
+    # Kebabs and fried meat
+    "seekh kebab": (PIECE, 50),
+    "chapli kebab": (PIECE, 100),
+    "shami kebab": (PIECE, 50),
+    "broast": (PIECE, 150),
+    "fish fry": (PIECE, 100),
+    "nuggets": (PIECE, 18),
+
+    # Breads and breakfast
+    "naan": (("naan", "naans", "count"), 100),
+    "aloo paratha": (("paratha", "parathas", "count"), 150),
+    "puri": (("puri", "puris", "count"), 30),
+    "bread slice": (SLICE, 30),
+    "bun": (PIECE, 50),
+    "fried egg": (("egg", "eggs", "count"), 50),
+    "boiled egg": (("egg", "eggs", "count"), 50),
+    "cereal": (BOWL, 40),
+
+    # Snacks and street food
+    "pakora": (PIECE, 20),
+    "chaat": (PLATE, 200),
+    "gol gappay": (PIECE, 15),
+    "dahi bhalla": (PLATE, 200),
+    "spring roll": (PIECE, 60),
+    "shawarma": (("roll", "rolls", "count"), 250),
+    "sandwich": (PIECE, 150),
+    "biscuits": (PIECE, 10),
+
+    # Sweets
+    "gulab jamun": (PIECE, 40),
+    "kheer": (BOWL, 150),
+    "gajar halwa": (SERVING, 100),
+    "suji halwa": (SERVING, 100),
+    "zarda": (SERVING, 150),
+    "barfi": (PIECE, 30),
+
+    # Drinks
+    "lassi": (("glass", "glasses", "amount"), 250),
+    "milk": (("glass", "glasses", "amount"), 250),
+    "soft drink": (("glass", "glasses", "amount"), 250),
+    "juice": (("glass", "glasses", "amount"), 250),
+    "coffee": (CUP, 200),
+
+    # Fruit, raita and salad
+    "apple": (PIECE, 180),
+    "banana": (PIECE, 120),
+    "mango": (PIECE, 200),
+    "orange": (PIECE, 150),
+    "guava": (PIECE, 100),
+    "dates": (PIECE, 8),
+    "grapes": (CUP, 150),
+    "watermelon": (SLICE, 280),
+    "raita": (BOWL, 100),
+    "salad": (BOWL, 100),
+    "yogurt": (BOWL, 150),
 }
 
 # Used for dishes not in the table (e.g. names from the fallback model).

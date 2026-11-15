@@ -139,6 +139,32 @@ def get_current_user(
         )
 
 
+    except jwt.PyJWKClientConnectionError:
+
+        # Supabase's key endpoint could not be reached: a temporary
+        # server-side problem, not the user's fault.
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Could not verify login right now. "
+                "Please try again in a moment."
+            ),
+        )
+
+
+    except jwt.PyJWKClientError:
+
+        # Token signed with a key this project does not know (forged, or
+        # from another / old Supabase project). Was an unhandled 500.
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Invalid token — "
+                "please log in again"
+            ),
+        )
+
+
     except jwt.ExpiredSignatureError:
 
         raise HTTPException(

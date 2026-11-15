@@ -1,0 +1,62 @@
+{
+  "_comment": "Public Hugging Face image datasets used for the food model. 'map' turns the dataset's label name into our dish slug (food_classes.json); labels not listed are not imported.",
+  "sources": [
+    {
+      "repo": "bharat-raghunathan/indian-foods-dataset",
+      "prefix": "hfIndian15",
+      "licence": "CC0 1.0 (public domain)",
+      "map": {
+        "biryani": "biryani",
+        "dal": "daal",
+        "jalebi": "jalebi",
+        "kofta": "kofta",
+        "naan": "naan",
+        "pakora": "pakora",
+        "panipuri": "gol_gappay",
+        "kathiroll": "paratha_roll"
+      }
+    },
+    {
+      "repo": "rajistics/indian_food_images",
+      "prefix": "hfIndian20",
+      "licence": "Not stated (web images, research use)",
+      "map": {
+        "burger": "burger",
+        "butter_naan": "naan",
+        "chai": "chai",
+        "chapati": "chapati",
+        "dal_makhani": "daal",
+        "fried_rice": "fried_rice",
+        "jalebi": "jalebi",
+        "kaathi_rolls": "paratha_roll",
+        "kadai_paneer": "kadai_paneer",
+        "kulfi": "kulfi",
+        "paani_puri": "gol_gappay",
+        "pakode": "pakora",
+        "pizza": "pizza",
+        "samosa": "samosa"
+      }
+    },
+    {
+      "repo": "ethz/food101",
+      "prefix": "food101",
+      "licence": "Research use only (Foodspotting images; see Food-101 terms)",
+      "map": {
+        "hamburger": "burger",
+        "pizza": "pizza",
+        "french_fries": "french_fries",
+        "fried_rice": "fried_rice",
+        "omelette": "omelette",
+        "ice_cream": "ice_cream",
+        "chocolate_cake": "cake",
+        "cup_cakes": "cupcakes",
+        "donuts": "donuts",
+        "chicken_wings": "chicken_wings",
+        "spring_rolls": "spring_roll",
+        "club_sandwich": "sandwich",
+        "samosa": "samosa",
+        "chicken_curry": "chicken_salan"
+      }
+    }
+  ]
+}

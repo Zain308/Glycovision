@@ -1,0 +1,108 @@
+{
+  "_comment": "clip_filter.py prompts for Openverse downloads (download_openverse.py). Keys are dish slugs (sub-folders of the download folder).",
+  "generic_reject": [
+    "a person's face or a group of people",
+    "a restaurant sign or shop front",
+    "a street scene",
+    "a menu or poster with lots of text",
+    "a plant or tree growing outdoors",
+    "a landscape",
+    "an animal",
+    "a building",
+    "a market stall with many different foods"
+  ],
+  "classes": {
+    "chicken_pulao": {
+      "keep": ["a plate of pulao rice with chicken or meat", "a plate of pilaf rice"],
+      "reject": ["a plate of biryani with red and yellow rice", "fried rice with vegetables and soy sauce", "plain white rice"]
+    },
+    "daal_chawal": {
+      "keep": ["a plate of yellow lentil daal with white rice", "dal and rice served together"],
+      "reject": ["a bowl of lentil soup without rice", "biryani"]
+    },
+    "shami_kebab": {
+      "keep": ["round flat fried shami kebab patties", "a plate of shami kababs"],
+      "reject": ["skewered seekh kebab", "a hamburger", "falafel balls"]
+    },
+    "zarda": {
+      "keep": ["a plate of sweet yellow saffron rice with nuts", "zarda sweet rice dessert"],
+      "reject": ["chewing tobacco", "a tin or packet of tobacco", "biryani", "plain white rice"]
+    },
+    "dahi_bhalla": {
+      "keep": ["dahi bhalla lentil dumplings in yogurt with chutney", "dahi vada in a bowl of yogurt"],
+      "reject": ["a plain bowl of yogurt", "idli"]
+    },
+    "shawarma": {
+      "keep": ["a shawarma wrap sandwich", "a rolled shawarma with meat inside"],
+      "reject": ["a rotating meat spit in a shop", "a plate of rice with meat", "a burrito"]
+    },
+    "lobia": {
+      "keep": ["a bowl of black-eyed peas curry", "cooked black-eyed beans"],
+      "reject": ["dry raw beans", "kidney beans", "a plant with pods"]
+    },
+    "bun": {
+      "keep": ["a plain bread bun", "soft bread rolls"],
+      "reject": ["a hamburger with filling", "a croissant", "a cake"]
+    },
+    "cereal": {
+      "keep": ["a bowl of breakfast cereal with milk", "cornflakes in a bowl"],
+      "reject": ["a cereal box", "grain growing in a field", "oatmeal porridge"]
+    },
+    "aloo_gosht": {
+      "keep": ["a bowl of meat and potato curry", "aloo gosht curry with potatoes and mutton"],
+      "reject": ["a western beef stew", "potato salad", "raw meat"]
+    },
+    "plain_rice": {
+      "keep": ["a plate of plain cooked white rice", "a bowl of steamed white rice"],
+      "reject": ["fried rice with vegetables", "sushi", "uncooked rice grains", "biryani"]
+    },
+    "baingan_bharta": {
+      "keep": ["baingan bharta mashed roasted eggplant curry", "a bowl of mashed eggplant curry"],
+      "reject": ["a raw purple eggplant", "baba ganoush dip with olive oil"]
+    },
+    "fish_fry": {
+      "keep": ["pieces of fried fish", "spicy masala fried fish"],
+      "reject": ["fish and chips with fries", "raw fish", "sushi", "a live fish"]
+    },
+    "guava": {
+      "keep": ["a guava fruit", "cut guava with pink or white flesh"],
+      "reject": ["guava leaves on a tree", "a pear", "an apple", "a lime"]
+    },
+    "dates": {
+      "keep": ["dried date fruits on a plate", "a bowl of dates"],
+      "reject": ["a calendar", "date palm trees", "raisins"]
+    },
+    "milk": {
+      "keep": ["a glass of milk", "a cup of plain white milk"],
+      "reject": ["a milkshake with toppings", "a milk carton or bottle", "a cow", "tea or coffee"]
+    },
+    "yogurt": {
+      "keep": ["a bowl of plain white yogurt", "plain curd yogurt"],
+      "reject": ["a yogurt cup with fruit and granola", "ice cream", "a milkshake"]
+    },
+    "nuggets": {
+      "keep": ["chicken nuggets", "a box of fried chicken nuggets"],
+      "reject": ["gold nuggets", "fried chicken drumsticks", "french fries alone"]
+    },
+    "soft_drink": {
+      "keep": ["a glass of cola soda with ice", "a can of soft drink", "a bottle of soda"],
+      "reject": ["a beer", "a glass of juice", "a cocktail", "water"]
+    },
+    "orange": {
+      "keep": ["an orange fruit", "peeled orange segments", "oranges on a plate"],
+      "reject": ["orange juice", "an orange colored object", "an orange tree", "a lemon"]
+    },
+    "biscuits": {
+      "keep": ["sweet tea biscuits or cookies on a plate", "a stack of biscuits"],
+      "reject": ["american buttermilk biscuits with gravy", "a cake", "bread"]
+    },
+    "watermelon": {
+      "keep": ["a slice of watermelon", "cut watermelon pieces"],
+      "reject": ["a whole watermelon in a field", "a watermelon drink"]
+    },
+    "boiled_egg": {
+      "keep": ["a peeled hard boiled egg", "boiled eggs cut in half"],
+      "reject": ["a fried egg", "an omelette", "raw eggs in a carton", "easter eggs painted"]
+    }
+  }
+}

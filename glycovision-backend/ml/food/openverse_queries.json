@@ -1,0 +1,28 @@
+{
+  "_comment": "Openverse search terms per dish slug (download_openverse.py). Several terms per dish because anonymous searches stop at about 240 results.",
+  "dishes": {
+    "chicken_pulao": ["pulao", "pilau rice", "yakhni pulao", "chicken pilaf"],
+    "daal_chawal": ["dal chawal", "dal rice", "dal bhat", "lentils and rice"],
+    "shami_kebab": ["shami kebab", "shami kabab"],
+    "zarda": ["zarda", "sweet saffron rice", "zarda rice"],
+    "dahi_bhalla": ["dahi bhalla", "dahi vada", "dahi bhalle"],
+    "shawarma": ["shawarma", "shawarma wrap", "chicken shawarma", "doner wrap"],
+    "lobia": ["lobia", "black eyed peas curry", "black-eyed peas"],
+    "aloo_gosht": ["aloo gosht", "mutton potato curry", "meat and potato curry"],
+    "plain_rice": ["steamed rice", "plain white rice", "boiled rice", "basmati rice"],
+    "baingan_bharta": ["baingan bharta", "baingan ka bharta", "eggplant bharta"],
+    "fish_fry": ["fried fish", "fish fry", "masala fried fish"],
+    "bun": ["bread bun", "burger bun", "dinner roll"],
+    "cereal": ["breakfast cereal", "cornflakes bowl", "cereal bowl milk"],
+    "guava": ["guava", "guava fruit"],
+    "dates": ["dates fruit", "medjool dates", "dried dates"],
+    "milk": ["glass of milk", "milk glass"],
+    "yogurt": ["yogurt bowl", "plain yogurt", "dahi curd"],
+    "nuggets": ["chicken nuggets"],
+    "soft_drink": ["soda glass", "cola glass", "soft drink", "soda can"],
+    "orange": ["orange fruit", "oranges", "tangerine"],
+    "biscuits": ["biscuits", "cookies plate", "tea biscuits"],
+    "watermelon": ["watermelon slice", "watermelon"],
+    "boiled_egg": ["boiled egg", "hard boiled eggs"]
+  }
+}

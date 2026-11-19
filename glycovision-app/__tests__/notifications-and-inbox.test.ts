@@ -97,6 +97,30 @@ describe('smart alerts from a reading', () => {
   });
 });
 
+describe('stress check', () => {
+  test('stressed voice check schedules one sugar recheck in 90 minutes', async () => {
+    await notif.onStressCheck('elevated');
+    await notif.onStressCheck('possible');
+    expect(cancel).toHaveBeenCalledWith('gv-stress-recheck');
+    const last = schedule.mock.calls[schedule.mock.calls.length - 1][0];
+    expect(last.identifier).toBe('gv-stress-recheck');
+    expect(last.trigger.seconds).toBe(90 * 60);
+    expect(last.content.body).not.toMatch(/units|dose/i);
+  });
+
+  test('calm or missing level does nothing', async () => {
+    await notif.onStressCheck('calm');
+    await notif.onStressCheck(null);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  test('respects the smart-alerts switch', async () => {
+    await notif.setSmartAlerts(false);
+    await notif.onStressCheck('elevated');
+    expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
 describe('meal and risk', () => {
   test('meal schedules one 2-hour check, replacing the previous', async () => {
     await notif.onMealLogged('Biryani');

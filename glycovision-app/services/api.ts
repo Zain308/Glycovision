@@ -765,6 +765,44 @@ export async function getStressContext(): Promise<StressContext> {
 }
 
 
+// ---------------------------------------------------------
+// STRESS PATTERN (last 7 days) and its effect on this user's sugar
+// ---------------------------------------------------------
+
+export interface StressPattern {
+  pattern: {
+    status: "not_enough_checks" | "calm" | "some" | "ongoing";
+    window_days: number;
+    checks: number;
+    stressed_checks: number;
+    stressed_days: number;
+    headline: string;
+    summary: string;
+  };
+  effect: {
+    status: "learning" | "raises" | "lowers" | "no_clear_effect";
+    stressed_pairs: number;
+    calm_pairs: number;
+    min_pairs: number;
+    difference_mg_dl: number | null;
+    headline: string;
+    summary: string;
+  };
+  advice: string[];
+  disclaimer: string;
+}
+
+export async function getStressPattern(): Promise<StressPattern> {
+  const res = await fetch(`${BASE_URL}/api/v1/stress-pattern`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Stress pattern failed: ${await res.text()}`);
+  }
+  return res.json();
+}
+
+
 export async function getVoiceHistory(
   limit = 10
 ) {

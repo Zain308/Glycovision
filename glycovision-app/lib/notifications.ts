@@ -33,6 +33,7 @@ const ID = {
   highRecheck: 'gv-recheck-high',
   postMeal: 'gv-post-meal',
   lowTimer: 'gv-low-timer',
+  stressRecheck: 'gv-stress-recheck',
 };
 
 const KEY_REMINDERS = 'gv.reminders.v1';
@@ -297,6 +298,24 @@ export async function onSpikeRisk(level: string | undefined, percent: number | u
       alert: true,
     },
     now(),
+  );
+}
+
+// Stress can raise sugar slowly over a few hours, so a stressed voice
+// check schedules one sugar check 90 minutes later. Advice only: it never
+// changes a dose.
+export async function onStressCheck(level: string | null | undefined) {
+  if (level !== 'possible' && level !== 'elevated') return;
+  if (!ENABLED || !(await smartAlertsEnabled())) return;
+  await notify(
+    {
+      title: 'Stress sugar check',
+      body: 'Your voice check suggested stress, which can raise sugar over a few hours. Check your sugar now and log it.',
+      url: '/?logBg=1',
+      kind: 'reminder',
+    },
+    inSeconds(90 * 60),
+    ID.stressRecheck,
   );
 }
 

@@ -27,9 +27,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Card } from "@/components/ui/Card";
 import {
   BASE_URL,
+  getStressPattern,
   getVoiceHistory,
   type StressContext,
+  type StressPattern,
 } from "@/services/api";
+import { StressPatternCard } from "@/components/StressPatternCard";
+import { onStressCheck } from "@/lib/notifications";
 import { router } from "expo-router";
 import { StressContextCard } from "@/components/StressContextCard";
 import { ResearchNote } from "@/components/ui/ResearchNote";
@@ -287,8 +291,16 @@ export default function VoiceScreen() {
     ensureMicReady();
   }, []);
 
+  // Stress over the last 7 days and its effect on this user's sugar.
+  const [pattern, setPattern] = useState<StressPattern | null>(null);
+  const loadPattern = () =>
+    getStressPattern()
+      .then(setPattern)
+      .catch((error) => console.log("[Voice] Stress pattern unavailable:", error?.message));
+
   useEffect(() => {
     loadVoiceHistory();
+    loadPattern();
   }, []);
 
   // -------------------------------------------------------
@@ -413,6 +425,10 @@ export default function VoiceScreen() {
       console.log("[Voice] Analysis:", dataResult);
 
       setResult(dataResult);
+
+      // A stressed check schedules one sugar recheck in 90 minutes.
+      onStressCheck(dataResult.stress_context?.level).catch(() => {});
+      loadPattern();
 
       // The backend saves the result before returning,
       // so refresh history immediately after analysis.
@@ -682,6 +698,17 @@ export default function VoiceScreen() {
             }
             onOpenBolus={() => router.push("/(tabs)/bolus")}
           />
+        </Card>
+      )}
+
+      {/* STRESS OVER TIME */}
+
+      {pattern && (
+        <Card style={styles.resultCard}>
+          <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>
+            Your stress pattern
+          </Text>
+          <StressPatternCard data={pattern} />
         </Card>
       )}
 

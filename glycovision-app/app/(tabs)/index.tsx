@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { Text } from "@/components/ui/Typography";
 
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Card } from "@/components/ui/Card";
@@ -123,9 +123,9 @@ function TodayStat({
 }
 
 const EVENT_STYLE: Record<TimelineEvent["type"], { tone: Tone; icon: (c: string, s: number) => React.ReactNode }> = {
-  meal: { tone: "warning", icon: (c, s) => <Ionicons name="restaurant" size={s} color={c} /> },
-  insulin: { tone: "brand", icon: (c, s) => <MaterialCommunityIcons name="needle" size={s} color={c} /> },
-  bg: { tone: "success", icon: (c, s) => <Ionicons name="water" size={s} color={c} /> },
+  meal: { tone: "brand", icon: (c, s) => <Ionicons name="restaurant-outline" size={s} color={c} /> },
+  insulin: { tone: "brand", icon: (c, s) => <Ionicons name="eyedrop-outline" size={s} color={c} /> },
+  bg: { tone: "success", icon: (c, s) => <Ionicons name="water-outline" size={s} color={c} /> },
 };
 
 function Timeline({ events }: { events: TimelineEvent[] }) {
@@ -703,25 +703,25 @@ export default function DashboardScreen() {
             label="Scan meal"
             tone="brand"
             onPress={() => router.push("/(tabs)/scanner")}
-            renderIcon={(c, s) => <Ionicons name="scan" size={s} color={c} />}
+            renderIcon={(c, s) => <Ionicons name="camera-outline" size={s} color={c} />}
           />
           <QuickAction
             label="Log sugar"
-            tone="success"
+            tone="brand"
             onPress={() => setBgModalVisible(true)}
-            renderIcon={(c, s) => <Ionicons name="water" size={s} color={c} />}
+            renderIcon={(c, s) => <Ionicons name="water-outline" size={s} color={c} />}
           />
           <QuickAction
             label="Bolus"
-            tone="info"
+            tone="brand"
             onPress={() => router.push("/(tabs)/bolus")}
-            renderIcon={(c, s) => <MaterialCommunityIcons name="needle" size={s} color={c} />}
+            renderIcon={(c, s) => <Ionicons name="calculator-outline" size={s} color={c} />}
           />
           <QuickAction
             label="Voice"
-            tone="warning"
+            tone="brand"
             onPress={() => router.push("/(tabs)/voice")}
-            renderIcon={(c, s) => <Ionicons name="mic" size={s} color={c} />}
+            renderIcon={(c, s) => <Ionicons name="mic-outline" size={s} color={c} />}
           />
         </View>
       </Reveal>
@@ -734,16 +734,16 @@ export default function DashboardScreen() {
             label="In range"
             value={summary?.time_in_range_pct ?? null}
             unit="%"
-            tone="success"
-            renderIcon={(c, s) => <MaterialCommunityIcons name="target" size={s} color={c} />}
+            tone="brand"
+            renderIcon={(c, s) => <Ionicons name="checkmark-circle-outline" size={s} color={c} />}
           />
           <View style={styles.statDivider} />
           <TodayStat
             label="Carbs"
             value={summary ? Number(summary.total_carbs_today ?? 0) : null}
             unit="g"
-            tone="warning"
-            renderIcon={(c, s) => <MaterialCommunityIcons name="bread-slice-outline" size={s} color={c} />}
+            tone="brand"
+            renderIcon={(c, s) => <Ionicons name="restaurant-outline" size={s} color={c} />}
           />
           <View style={styles.statDivider} />
           <TodayStat
@@ -752,7 +752,7 @@ export default function DashboardScreen() {
             unit="u"
             decimals={1}
             tone="brand"
-            renderIcon={(c, s) => <MaterialCommunityIcons name="needle" size={s} color={c} />}
+            renderIcon={(c, s) => <Ionicons name="eyedrop-outline" size={s} color={c} />}
           />
         </Card>
       </Reveal>
@@ -769,17 +769,29 @@ export default function DashboardScreen() {
             )}
           </View>
           {bgHistory.length > 0 && (
+            <>
             <View style={styles.chartLegend}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendSwatch, { backgroundColor: colors.successSoft, borderColor: colors.success }]} />
-                <Text style={styles.legendText}>
-                  Target {RANGE_LOW}–{RANGE_HIGH}
-                </Text>
+                <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+                <Text style={styles.legendText}>In range {RANGE_LOW}–{RANGE_HIGH}</Text>
               </View>
-              <Text style={styles.legendText}>
-                {bgHistory.length} {bgHistory.length === 1 ? "reading" : "readings"}
-              </Text>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
+                <Text style={styles.legendText}>High</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.danger }]} />
+                <Text style={styles.legendText}>Low</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={styles.legendDash} />
+                <Text style={styles.legendText}>No readings</Text>
+              </View>
             </View>
+            <Text style={styles.chartHint}>
+              {bgHistory.length} {bgHistory.length === 1 ? "reading" : "readings"} · tap the chart to see a value
+            </Text>
+            </>
           )}
         </Card>
       </Reveal>
@@ -797,7 +809,7 @@ export default function DashboardScreen() {
             <Timeline events={timeline.slice(0, 6)} />
           ) : (
             <View style={styles.emptyState}>
-              <IconBadge icon="sunny" tone="warning" size={56} />
+              <IconBadge icon="calendar-outline" tone="brand" size={56} />
               <Text style={styles.emptyTitle}>A fresh start</Text>
               <Text style={styles.emptySub}>
                 Your meals, insulin and readings will appear here as you log them today.
@@ -869,7 +881,7 @@ export default function DashboardScreen() {
       <Reveal index={6}>
         <Card>
           <View style={styles.cardHead}>
-            <IconBadge icon="analytics" tone="brand" />
+            <IconBadge icon="analytics-outline" tone="brand" />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardHeadTitle}>Next 60 minutes</Text>
               <Text style={styles.cardHeadSub}>Chance your sugar rises soon</Text>
@@ -989,7 +1001,7 @@ export default function DashboardScreen() {
       <Reveal index={8}>
         <Card>
           <View style={[styles.cardHead, { marginBottom: 4 }]}>
-            <IconBadge tone="brand" renderIcon={(c, s) => <MaterialCommunityIcons name="needle" size={s} color={c} />} />
+            <IconBadge icon="eyedrop-outline" tone="brand" />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardHeadTitle}>Active insulin</Text>
               <Text style={styles.cardHeadSub}>Action time {currentIob?.dia_hours ?? "—"} h</Text>
@@ -1145,9 +1157,11 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 13.5, fontWeight: "600", color: colors.textMuted },
 
   // Chart
-  chartLegend: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
+  chartLegend: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 14, rowGap: 6, marginTop: 12 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legendSwatch: { width: 14, height: 10, borderRadius: 3, borderWidth: 1 },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendDash: { width: 16, height: 0, borderTopWidth: 2, borderStyle: "dashed", borderColor: colors.textFaint },
+  chartHint: { fontSize: 13, color: colors.textFaint, marginTop: 6 },
   legendText: { fontSize: 13, color: colors.textFaint, fontWeight: "600" },
 
   // Timeline

@@ -120,9 +120,13 @@ def compare_feature(
 # OVERALL PERSONAL DEVIATION
 # =========================================================
 
+_FETCH = object()
+
+
 def compare_to_personal_baseline(
     user_id: str,
     voice_result: dict,
+    baseline_record=_FETCH,
 ) -> dict:
     """
     Compare one valid V3 recording against the user's
@@ -155,9 +159,11 @@ def compare_to_personal_baseline(
             ),
         }
 
-    baseline_record = get_saved_baseline(
-        user_id=user_id,
-    )
+    # Callers comparing many recordings pass the baseline in once.
+    if baseline_record is _FETCH:
+        baseline_record = get_saved_baseline(
+            user_id=user_id,
+        )
 
     if baseline_record is None:
         return {

@@ -28,6 +28,7 @@ from services.voice_deviation import (
 )
 
 from services.stress_context import get_stress_context
+from services.stress_pattern import get_stress_pattern
 
 
 router = APIRouter(
@@ -630,4 +631,23 @@ def stress_context(
         raise HTTPException(
             status_code=500,
             detail="Could not load stress context.",
+        )
+
+
+@router.get("/stress-pattern")
+def stress_pattern(
+    user_id: str = Depends(get_current_user),
+):
+    """
+    Stress over the last 7 days (is it ongoing?) and how stress has
+    affected this user's own sugar over the last 30 days. Advice only:
+    it never changes an insulin dose.
+    """
+    try:
+        return get_stress_pattern(user_id)
+    except Exception as error:
+        print("[Stress Pattern Error]", repr(error))
+        raise HTTPException(
+            status_code=500,
+            detail="Could not load your stress pattern.",
         )

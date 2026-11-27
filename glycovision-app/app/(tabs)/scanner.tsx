@@ -33,6 +33,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { AnimatedNumber } from "@/components/ui/Motion";
 import { onMealLogged } from "@/lib/notifications";
 import { haptic } from "@/lib/haptics";
+import { isDisconnected, isOffline } from "@/lib/offline";
 import { colors, radius, tabular } from "@/constants/theme";
 import {
   MealNutrition,
@@ -77,6 +78,12 @@ export default function ScannerScreen() {
     }
   };
 
+  const offerLibrary = () =>
+    Alert.alert("Photo scan needs internet", "Pick the dish from the food library instead. It works without internet.", [
+      { text: "Not now", style: "cancel" },
+      { text: "Open food library", onPress: () => router.push("/library") },
+    ]);
+
   const processImage = async (uri: string, mimeType?: string | null) => {
     setImage(uri);
     setLoading(true);
@@ -108,6 +115,11 @@ export default function ScannerScreen() {
       }
       await showResult(data);
     } catch (e: any) {
+      if (isOffline(e)) {
+        setImage(null);
+        offerLibrary();
+        return;
+      }
       console.error("Scan failed:", e.message || e);
       Alert.alert("Error", e.message || "Could not reach the backend. Check IP & server.");
     } finally {
@@ -131,6 +143,7 @@ export default function ScannerScreen() {
   };
 
   const takePhoto = async () => {
+    if (isDisconnected()) return offerLibrary();
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) return Alert.alert("Permission needed");
     const res = await ImagePicker.launchCameraAsync({
@@ -141,6 +154,7 @@ export default function ScannerScreen() {
   };
 
   const pickImage = async () => {
+    if (isDisconnected()) return offerLibrary();
     const res = await ImagePicker.launchImageLibraryAsync({
       quality: 0.8,
       allowsEditing: true,
@@ -362,6 +376,9 @@ export default function ScannerScreen() {
               disabled={logged}
             />
           )}
+          {logged ? (
+            <Button label="See what it does to my sugar" icon="trending-up" variant="secondary" onPress={() => router.push("/(tabs)")} />
+          ) : null}
           <Button
             label="Scan another meal"
             icon="camera-outline"

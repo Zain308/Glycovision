@@ -19,7 +19,10 @@ import {
   logBolus,
   getDashboardSummary,
   getCurrentIob,
+  getTimelineToday,
+  type TimelineEvent,
 } from "@/services/api";
+import { InsulinToday, RecordDose } from "@/components/RecordDose";
 import { Card } from "@/components/ui/Card";
 import { NotificationBell } from "@/components/NotificationBell";
 import { AnimatedNumber } from "@/components/ui/Motion";
@@ -81,6 +84,10 @@ export default function BolusScreen() {
   const [loggingDose, setLoggingDose] = useState(false);
   const [doseLogged, setDoseLogged] = useState(false);
   const [result, setResult] = useState<any>(null);
+  // False until sugar, settings and active insulin came from the server.
+  const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [today, setToday] = useState<TimelineEvent[]>([]);
   const { prefillCarbs } = useLocalSearchParams<{ prefillCarbs?: string }>();
 
   // Reload every time the tab is opened. Tabs stay mounted, so loading
@@ -108,16 +115,17 @@ export default function BolusScreen() {
           }
           setIob(String(iobData.iob));
 
+          setReady(true);
           // Inputs may have changed, so an earlier result no longer applies.
           setResult(null);
           setDoseLogged(false);
         } catch (e) {
-          console.error("Failed to load profile", e);
+          console.log("Bolus inputs unavailable", e);
+          // No guessing: without the insulin still active, a dose is unsafe.
           if (active) {
-            Alert.alert(
-              "Error",
-              "Could not load your clinical profile. Using defaults.",
-            );
+            setReady(false);
+            setResult(null);
+            getTimelineToday().then((t) => active && setToday(t)).catch(() => {});
           }
         } finally {
           if (active) setProfileLoading(false);
@@ -127,7 +135,7 @@ export default function BolusScreen() {
       return () => {
         active = false;
       };
-    }, []),
+    }, [attempt]),
   );
 
   useEffect(() => {
@@ -287,13 +295,18 @@ export default function BolusScreen() {
       haptic.success();
 
       // Refresh backend-derived IOB immediately after logging.
-      const iobData = await getCurrentIob();
-      setIob(String(iobData.iob));
-
       Alert.alert(
         "Logged",
         "Research bolus estimate saved to your history.",
       );
+      try {
+        const iobData = await getCurrentIob();
+        setIob(String(iobData.iob));
+      } catch {
+        // The dose is saved, but active insulin is not known any more.
+        setReady(false);
+        setResult(null);
+      }
     } catch (e) {
       Alert.alert("Error", "Could not log this dose.");
     } finally {
@@ -334,6 +347,28 @@ export default function BolusScreen() {
     return (
       <Screen scroll={false} contentStyle={{ justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </Screen>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <Screen title="Insulin" subtitle="The calculator needs internet." right={<NotificationBell />}>
+        <Card>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <IconBadge icon="cloud-offline-outline" tone="warning" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.offTitle}>No dose can be worked out now</Text>
+              <Text style={styles.offText}>
+                We can’t check your latest sugar and the insulin still active. Use the plan your doctor gave you, or call
+                them if you are not sure.
+              </Text>
+            </View>
+          </View>
+          <Button label="Try again" icon="refresh" size="md" variant="secondary" onPress={() => setAttempt((n) => n + 1)} style={{ marginTop: 14 }} />
+        </Card>
+        <InsulinToday events={today} />
+        <RecordDose onSaved={() => getTimelineToday().then(setToday).catch(() => {})} />
       </Screen>
     );
   }
@@ -457,11 +492,14 @@ export default function BolusScreen() {
         </View>
         <StatusPill tone="neutral" icon="information-circle" label="Ask your doctor for these numbers" style={{ marginTop: 4 }} />
       </Card>
+      <RecordDose onSaved={() => setAttempt((n) => n + 1)} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  offTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  offText: { fontSize: 15, lineHeight: 21, color: colors.textMuted, marginTop: 4 },
   // Result
   resultCard: { padding: 22, borderRadius: radius.xl, marginBottom: 12 },
   resultLabel: { fontSize: 13, fontWeight: "800", letterSpacing: 1, color: colors.heroMuted },

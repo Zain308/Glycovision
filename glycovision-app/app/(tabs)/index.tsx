@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Alert,
   LayoutChangeEvent,
 } from "react-native";
 import { Text } from "@/components/ui/Typography";
@@ -22,7 +23,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ResearchNote } from "@/components/ui/ResearchNote";
 import { Screen } from "@/components/ui/Screen";
 import { Button } from "@/components/ui/Button";
 import { AnimatedNumber, Reveal } from "@/components/ui/Motion";
@@ -34,31 +34,35 @@ import {
   toneColors,
   type Tone,
 } from "@/components/ui/Bits";
-import { StressContextCard } from "@/components/StressContextCard";
 import { LogBgSheet } from "@/components/LogBgSheet";
 import { NotificationBell } from "@/components/NotificationBell";
+import { CarePlanSection } from "@/components/CarePlan";
 import { GlucoseRing } from "@/components/GlucoseRing";
 import { GlucoseChart, CHART_HEIGHT } from "@/components/GlucoseChart";
 
 import {
   getDashboardSummary,
   getBgHistory,
-  getCurrentIob,
   logBg,
-  getSpikeIntervention,
-  getStressContext,
+  getCarePlan,
+  deleteEntry,
+  getMedicines,
   getTimelineToday,
-  type StressContext,
+  type CarePlan,
+  type InputKey,
   type BgReading,
+  type MedicineDose,
   type TimelineEvent,
 } from "@/services/api";
 
 import { colors, radius, shadow, tabular } from "@/constants/theme";
 import { glucoseStatus, greeting, timeAgo, RANGE_HIGH, RANGE_LOW } from "@/lib/glucose";
 import { haptic } from "@/lib/haptics";
-import { onBloodSugarLogged, onSpikeRisk } from "@/lib/notifications";
-
-import { supabase } from "@/lib/supabase";
+import { onBloodSugarLogged, onForecast, remindToCheck } from "@/lib/notifications";
+import { syncNow } from "@/lib/healthConnect";
+import { todayLine } from "@/lib/medicines";
+import { useOffline } from "@/lib/offline";
+import { OfflinePlan, OfflineRow } from "@/components/OfflineCards";
 
 // ---------------------------------------------------------
 // SMALL PIECES
@@ -128,7 +132,7 @@ const EVENT_STYLE: Record<TimelineEvent["type"], { tone: Tone; icon: (c: string,
   bg: { tone: "success", icon: (c, s) => <Ionicons name="water-outline" size={s} color={c} /> },
 };
 
-function Timeline({ events }: { events: TimelineEvent[] }) {
+function Timeline({ events, onPick }: { events: TimelineEvent[]; onPick: (e: TimelineEvent) => void }) {
   return (
     <View>
       {events.map((e, i) => {
@@ -143,7 +147,12 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
               <View style={[styles.tlDot, { backgroundColor: toneColors[tone].strong }]} />
               {!last ? <View style={styles.tlLine} /> : null}
             </View>
-            <View style={[styles.tlCard, last && { marginBottom: 0 }]}>
+            <Pressable
+              onPress={() => onPick(e)}
+              accessibilityRole="button"
+              accessibilityLabel={`${e.title}, ${time}. Tap to delete`}
+              style={({ pressed }) => [styles.tlCard, last && { marginBottom: 0 }, pressed && { opacity: 0.7 }]}
+            >
               <IconBadge renderIcon={s.icon} tone={tone} size={36} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.tlTitle} numberOfLines={1}>
@@ -153,28 +162,14 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
                   {e.detail}
                 </Text>
               </View>
-            </View>
+              <Ionicons name="ellipsis-vertical" size={18} color={colors.textFaint} />
+            </Pressable>
           </View>
         );
       })}
     </View>
   );
 }
-
-const riskTone = (level?: string): Tone =>
-  level === "elevated" ? "danger" : level === "moderate" ? "warning" : "success";
-
-const severityTone = (s?: string): Tone =>
-  s === "elevated" ? "danger" : s === "moderate" ? "warning" : s === "low" ? "success" : "brand";
-
-const severityIcon = (s?: string) =>
-  s === "elevated"
-    ? ("warning" as const)
-    : s === "moderate"
-      ? ("eye" as const)
-      : s === "low"
-        ? ("checkmark-circle" as const)
-        : ("information-circle" as const);
 
 // ---------------------------------------------------------
 // DASHBOARD
@@ -184,11 +179,6 @@ export default function DashboardScreen() {
   const [summary, setSummary] = useState<any>(null);
 
   const [bgHistory, setBgHistory] = useState<BgReading[]>([]);
-
-  const [currentIob, setCurrentIob] = useState<{
-    iob: number;
-    dia_hours: number;
-  } | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -206,16 +196,42 @@ export default function DashboardScreen() {
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [spikeRisk, setSpikeRisk] = useState<any>(null);
-
-  const [spikeRiskLoading, setSpikeRiskLoading] = useState(false);
-
-  const [spikeIntervention, setSpikeIntervention] = useState<any>(null);
-
-  const [stressContext, setStressContext] = useState<StressContext | null>(null);
+  // Forecast -> insulin -> activity (backend services/care_plan).
+  const [plan, setPlan] = useState<CarePlan | null>(null);
+  const [planError, setPlanError] = useState(false);
+  // "What if I eat…": a preview meal in grams (0 = the real plan).
+  const [previewCarbs, setPreviewCarbs] = useState(0);
+  const [planBusy, setPlanBusy] = useState(false);
+  const planRequest = useRef(0);
 
   // Today's meals, insulin and readings for the timeline.
   const [timeline, setTimeline] = useState<TimelineEvent[] | null>(null);
+
+  const [doses, setDoses] = useState<MedicineDose[]>([]);
+  const [allDay, setAllDay] = useState(false);
+
+  // A wrong or doubled entry changes the forecast and the next dose.
+  const askDelete = (e: TimelineEvent) =>
+    Alert.alert(
+      `Delete ${e.title}?`,
+      e.type === "insulin"
+        ? "Only if it was logged by mistake. Insulin you really took must stay, or the next dose suggestion will be too high."
+        : "Only if it was logged by mistake or twice.",
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            deleteEntry(e)
+              .then(() => {
+                haptic.success();
+                load(true);
+              })
+              .catch((error) => Alert.alert("Not deleted", error instanceof Error ? error.message : "Try again.")),
+        },
+      ],
+    );
 
   // Other screens (e.g. Voice) open the "Log blood sugar" popup by
   // navigating here with ?logBg=1.
@@ -228,13 +244,78 @@ export default function DashboardScreen() {
     }
   }, [openLogBg]);
 
-  const [interventionLoading, setInterventionLoading] = useState(false);
+  // Back online, or the last waiting entry was uploaded: show fresh data.
+  const net = useOffline();
+  const behind = net.offline || net.waiting.length > 0 || net.savedAt != null;
+  const wasBehind = useRef(false);
+  const caughtUpAt = useRef(0);
+  useEffect(() => {
+    // At most every 30 s: a server that is always slow must not loop this.
+    if (wasBehind.current && !behind && Date.now() - caughtUpAt.current > 30_000) {
+      caughtUpAt.current = Date.now();
+      loadRef.current?.(true);
+    }
+    wasBehind.current = behind;
+  }, [behind]);
+  const loadRef = useRef<((force?: boolean) => void) | null>(null);
 
   // Prevent overlapping dashboard requests.
   const loadInFlightRef = useRef(false);
 
   // Avoid immediately repeating focus-triggered requests.
   const lastLoadAtRef = useRef(0);
+
+  const loadPlan = useCallback(async () => {
+    const fetchPlan = async () => {
+      const mine = ++planRequest.current;
+      const next = await getCarePlan();
+      if (mine !== planRequest.current) return; // a newer plan was asked for
+      setPlan(next);
+      setPreviewCarbs(0);
+      setPlanBusy(false);
+      setPlanError(false);
+      // Warn about a likely spike or low (rate-limited in the helper).
+      onForecast(next.forecast);
+    };
+    try {
+      await fetchPlan();
+      // Then bring in new steps and heart rate, and refresh if there were any.
+      if ((await syncNow()) > 0) await fetchPlan();
+    } catch (error) {
+      console.log("Care plan unavailable:", error);
+      // An old forecast or dose must never stay on screen.
+      planRequest.current++;
+      setPlan(null);
+      setPreviewCarbs(0);
+      setPlanBusy(false);
+      setPlanError(true);
+    }
+  }, []);
+
+  const tryMeal = useCallback(async (carbs: number) => {
+    const mine = ++planRequest.current;
+    setPlanBusy(true);
+    try {
+      const next = await getCarePlan(carbs || undefined);
+      if (mine !== planRequest.current) return;
+      setPlan(next);
+      setPreviewCarbs(carbs);
+    } catch (error) {
+      console.log("Preview unavailable:", error);
+      if (mine === planRequest.current) Alert.alert("Couldn't load the preview", "Check your internet connection and try again.");
+    } finally {
+      if (mine === planRequest.current) setPlanBusy(false);
+    }
+  }, []);
+
+  const openInput = (key: InputKey) => {
+    if (key === "sugar") setBgModalVisible(true);
+    else if (key === "food") router.push("/(tabs)/scanner");
+    else if (key === "stress") router.push("/(tabs)/voice");
+    else if (key === "insulin") router.push("/(tabs)/bolus");
+    else if (key === "activity") router.push("/(tabs)/fitness" as any);
+    else router.push("/(tabs)/profile");
+  };
 
   // -------------------------------------------------------
   // LOAD DASHBOARD
@@ -256,10 +337,9 @@ export default function DashboardScreen() {
     lastLoadAtRef.current = now;
 
     try {
-      const [dashboardData, historyData, iobData] = await Promise.all([
+      const [dashboardData, historyData] = await Promise.all([
         getDashboardSummary(),
         getBgHistory(24),
-        getCurrentIob(),
       ]);
 
       setSummary(dashboardData);
@@ -267,8 +347,6 @@ export default function DashboardScreen() {
       setLoadError(null);
 
       setBgHistory(historyData.readings ?? []);
-
-      setCurrentIob(iobData);
 
       // Timeline loads alongside; a failure only hides that section.
       getTimelineToday()
@@ -278,44 +356,12 @@ export default function DashboardScreen() {
           setTimeline([]);
         });
 
-      // -----------------------------------------------
-      // SPIKE RISK + INTERVENTION
-      // -----------------------------------------------
+      // The plan loads alongside, so the rest of the screen never waits for it.
+      loadPlan();
+      getMedicines()
+        .then((m) => setDoses(m.today))
+        .catch((error) => console.log("Medicines unavailable:", error));
 
-      try {
-        setSpikeRiskLoading(true);
-        setInterventionLoading(true);
-
-        const [interventionData, stressData] = await Promise.all([
-          getSpikeIntervention(),
-          getStressContext().catch((error) => {
-            console.log("Stress context unavailable:", error);
-            return null;
-          }),
-        ]);
-
-        setStressContext(stressData);
-
-        setSpikeIntervention(interventionData);
-
-        // The intervention endpoint already contains
-        // the underlying spike-risk result.
-        const riskData = interventionData?.risk ?? null;
-
-        setSpikeRisk(riskData);
-
-        // Real-time alert if a rise looks likely (rate-limited in the helper).
-        onSpikeRisk(riskData?.risk_level, riskData?.risk_percent);
-
-      } catch (error) {
-        console.log("Spike prediction/intervention unavailable:", error);
-
-        setSpikeRisk(null);
-        setSpikeIntervention(null);
-      } finally {
-        setSpikeRiskLoading(false);
-        setInterventionLoading(false);
-      }
     } catch (error) {
       console.error("Failed to load dashboard", error);
 
@@ -329,7 +375,9 @@ export default function DashboardScreen() {
 
       setRefreshing(false);
     }
-  }, []);
+  }, [loadPlan]);
+
+  loadRef.current = load;
 
   // -------------------------------------------------------
   // INITIAL LOAD
@@ -340,8 +388,6 @@ export default function DashboardScreen() {
       let active = true;
 
       const loadDashboard = async () => {
-        await supabase.auth.getSession();
-
         if (active) {
           await load();
         }
@@ -467,104 +513,6 @@ export default function DashboardScreen() {
   const trend = getTrend();
 
   // -------------------------------------------------------
-  // RISK DISPLAY HELPERS
-  // -------------------------------------------------------
-
-  const formatUpdatedTime = () => {
-    const referenceTime =
-      spikeRisk?.prediction_reference_time ?? spikeRisk?.latest_bg_at ?? null;
-
-    if (!referenceTime) {
-      return "No recent glucose reading";
-    }
-
-    const referenceDate = new Date(referenceTime);
-
-    const minutes = Math.max(
-      0,
-      Math.floor((Date.now() - referenceDate.getTime()) / 60000),
-    );
-
-    if (minutes < 1) {
-      return "Updated just now";
-    }
-
-    if (minutes === 1) {
-      return "Updated 1 min ago";
-    }
-
-    if (minutes < 60) {
-      return `Updated ${minutes} min ago`;
-    }
-
-    const hours = Math.floor(minutes / 60);
-
-    return hours === 1 ? "Updated 1 hour ago" : `Updated ${hours} hours ago`;
-  };
-
-  const getPredictionSourceText = () => {
-    if (spikeRisk?.prediction_mode === "dense") {
-      return "Full glucose history available";
-    }
-
-    if (spikeRisk?.prediction_mode === "sparse") {
-      return "Estimated from available BG checkpoints";
-    }
-
-    return "";
-  };
-
-  const getRiskExplanation = () => {
-    if (spikeRisk?.risk_level === "elevated") {
-      return (
-        "Your recent glucose pattern shows an elevated " +
-        "short-term rise risk. Keep monitoring your glucose."
-      );
-    }
-
-    if (spikeRisk?.risk_level === "moderate") {
-      return (
-        "Your recent glucose pattern shows some short-term " +
-        "rise risk. Continue monitoring your glucose trend."
-      );
-    }
-
-    return (
-      "Your recent glucose pattern currently shows a lower " +
-      "short-term rise risk."
-    );
-  };
-
-  const getNotReadyProgressText = () => {
-    const sparse = spikeRisk?.sparse_model;
-
-    if (sparse?.required_anchors != null) {
-      const missing = sparse?.missing_offsets_minutes ?? [];
-
-      const matched = Math.max(
-        0,
-        Number(sparse.required_anchors) - missing.length,
-      );
-
-      return (
-        `${matched} / ${sparse.required_anchors} ` +
-        "key BG checkpoints available"
-      );
-    }
-
-    const available =
-      spikeRisk?.available_readings ??
-      spikeRisk?.dense_model?.available_readings ??
-      0;
-
-    const required =
-      spikeRisk?.required_readings ??
-      spikeRisk?.dense_model?.required_readings ??
-      13;
-
-    return `${available} / ${required} readings available`;
-  };
-  // -------------------------------------------------------
   // UI
   // -------------------------------------------------------
 
@@ -577,7 +525,8 @@ export default function DashboardScreen() {
         (a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime(),
       )[0]
     : null;
-  const latestBg: number | null = summary?.latest_bg ?? latestReading?.value ?? null;
+  // Readings first: they include ones still waiting to upload.
+  const latestBg: number | null = latestReading?.value ?? summary?.latest_bg ?? null;
   const status = glucoseStatus(latestBg);
   const readingAge = timeAgo(latestReading?.logged_at);
   const firstName = String(summary?.full_name ?? "").split(" ")[0];
@@ -589,6 +538,7 @@ export default function DashboardScreen() {
       .map((p: string) => p[0]?.toUpperCase())
       .join("") || "G";
   const showTrend = bgHistory.length > 1 && !trend.label.startsWith("Not enough");
+  const medLine = todayLine(doses);
   const today = new Date().toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
 
   return (
@@ -627,6 +577,8 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
       )}
+
+      <OfflineRow />
 
       {/* LOW SUGAR: help first */}
       {status && (status.key === "low" || status.key === "very_low") ? (
@@ -726,6 +678,58 @@ export default function DashboardScreen() {
         </View>
       </Reveal>
 
+      {/* MEDICINES DUE */}
+      {medLine ? (
+        <Pressable
+          onPress={() => router.push("/medicines" as any)}
+          accessibilityRole="button"
+          accessibilityLabel={`Medicines. ${medLine.text}`}
+          style={({ pressed }) => [styles.medRow, medLine.attention && styles.medDue, pressed && { opacity: 0.8 }]}
+        >
+          <Ionicons name="medical-outline" size={22} color={medLine.attention ? colors.warningText : colors.primary} />
+          <Text style={[styles.medText, medLine.attention && { color: colors.warningText }]} numberOfLines={2}>
+            {medLine.text}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color={medLine.attention ? colors.warningText : colors.textFaint} />
+        </Pressable>
+      ) : null}
+
+      {/* THE PLAN: inputs -> 1 sugar -> 2 insulin -> 3 activity */}
+      <Reveal index={2}>
+        <SectionHeader title="Your plan" />
+        {plan ? (
+          <CarePlanSection
+            plan={plan}
+            carbs={previewCarbs}
+            busy={planBusy}
+            onWhatIf={tryMeal}
+            onInput={openInput}
+            onRemind={async (minutes) => {
+              haptic.success();
+              const ok = await remindToCheck(minutes);
+              Alert.alert(ok ? "Reminder set" : "Reminders are off", ok ? `We'll remind you in ${minutes} minutes.` : "Turn on notifications for GlycoVision in your phone settings.");
+            }}
+            onLog={() => setBgModalVisible(true)}
+            onProfile={() => router.push("/(tabs)/profile")}
+            onBolus={() => router.push("/(tabs)/bolus")}
+            onActivity={() => router.push("/activity" as any)}
+          />
+        ) : (
+          <Card>
+            {planError && net.offline ? (
+              <OfflinePlan events={timeline ?? []} />
+            ) : planError ? (
+              <Text style={styles.muted}>Your plan isn’t available right now. Pull down to try again.</Text>
+            ) : (
+              <View style={styles.centerRow}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={styles.muted}>Working out your next hour…</Text>
+              </View>
+            )}
+          </Card>
+        )}
+      </Reveal>
+
       {/* TODAY */}
       <Reveal index={2}>
         <SectionHeader title="Today" />
@@ -806,7 +810,19 @@ export default function DashboardScreen() {
               <Skeleton width="100%" height={52} />
             </View>
           ) : timeline.length ? (
-            <Timeline events={timeline.slice(0, 6)} />
+            <>
+              <Timeline events={allDay ? timeline : timeline.slice(0, 6)} onPick={askDelete} />
+              {timeline.length > 6 ? (
+                <Button
+                  label={allDay ? "Show less" : `Show all ${timeline.length}`}
+                  icon={allDay ? "chevron-up" : "chevron-down"}
+                  size="md"
+                  variant="ghost"
+                  onPress={() => setAllDay(!allDay)}
+                  style={{ marginTop: 8 }}
+                />
+              ) : null}
+            </>
           ) : (
             <View style={styles.emptyState}>
               <IconBadge icon="calendar-outline" tone="brand" size={56} />
@@ -825,219 +841,39 @@ export default function DashboardScreen() {
         </Card>
       </Reveal>
 
-      {/* RECOMMENDED NEXT STEP */}
-      <Reveal index={5}>
-        <SectionHeader title="What to do next" />
-        <Card>
-          {interventionLoading ? (
-            <View style={styles.centerRow}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.muted}>Preparing guidance…</Text>
-            </View>
-          ) : spikeIntervention ? (
-            <>
-              <View style={styles.cardHead}>
-                <IconBadge icon={severityIcon(spikeIntervention.severity)} tone={severityTone(spikeIntervention.severity)} />
-                <Text style={styles.cardHeadTitle}>{spikeIntervention.title}</Text>
-              </View>
-              <Text style={styles.bodyText}>{spikeIntervention.message}</Text>
-
-              {spikeIntervention.recommended_next_step ? (
-                <View style={styles.nextStepBox}>
-                  <Ionicons name="arrow-forward-circle" size={22} color={colors.primary} />
-                  <Text style={styles.nextStepText}>{spikeIntervention.recommended_next_step}</Text>
-                </View>
-              ) : null}
-
-              {spikeIntervention.stress_note ? (
-                <View style={styles.stressNoteBox}>
-                  <Ionicons name="pulse" size={18} color={colors.warningText} />
-                  <Text style={styles.stressNoteText}>{spikeIntervention.stress_note}</Text>
-                </View>
-              ) : null}
-
-              {(spikeIntervention.status === "stale" || spikeIntervention.status === "not_ready") && (
-                <Button label="Log new reading" icon="add-circle" size="md" onPress={() => setBgModalVisible(true)} style={{ marginTop: 14 }} />
-              )}
-
-              <ResearchNote
-                label="Decision support · not for dosing"
-                details={
-                  spikeIntervention.disclaimer ??
-                  "Research decision-support only. Do not use this guidance for insulin dosing."
-                }
-              />
-            </>
-          ) : (
-            <View style={styles.centerRow}>
-              <Ionicons name="information-circle-outline" size={22} color={colors.textFaint} />
-              <Text style={styles.muted}>Guidance is not available right now.</Text>
-            </View>
-          )}
-        </Card>
-      </Reveal>
-
-      {/* 60-MINUTE RISK */}
-      <Reveal index={6}>
-        <Card>
-          <View style={styles.cardHead}>
-            <IconBadge icon="analytics-outline" tone="brand" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardHeadTitle}>Next 60 minutes</Text>
-              <Text style={styles.cardHeadSub}>Chance your sugar rises soon</Text>
-            </View>
-          </View>
-
-          {spikeRiskLoading ? (
-            <View style={styles.centerRow}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.muted}>Checking your recent readings…</Text>
-            </View>
-          ) : spikeRisk?.status === "ready" ? (
-            <>
-              <View style={styles.riskRow}>
-                <AnimatedNumber value={Number(spikeRisk.risk_percent)} style={styles.riskScore} />
-                <Text style={styles.riskPct}>%</Text>
-                <View style={{ flex: 1 }} />
-                <StatusPill
-                  tone={riskTone(spikeRisk.risk_level)}
-                  icon={spikeRisk.risk_level === "low" ? "checkmark-circle" : "warning"}
-                  label={
-                    spikeRisk.risk_level === "elevated"
-                      ? "Higher risk"
-                      : spikeRisk.risk_level === "moderate"
-                        ? "Some risk"
-                        : "Low risk"
-                  }
-                />
-              </View>
-
-              <View style={styles.meter} accessibilityElementsHidden>
-                {(["low", "moderate", "elevated"] as const).map((lvl) => (
-                  <View
-                    key={lvl}
-                    style={[
-                      styles.meterSeg,
-                      {
-                        backgroundColor:
-                          lvl === spikeRisk.risk_level ? toneColors[riskTone(lvl)].strong : colors.surfaceMuted,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-
-              <Text style={styles.bodyText}>{getRiskExplanation()}</Text>
-
-              <View style={styles.statsRow}>
-                {[
-                  { v: `${spikeRisk.current_bg}`, l: "Now" },
-                  { v: `${spikeRisk.bg_change_15m > 0 ? "+" : ""}${spikeRisk.bg_change_15m}`, l: "15 min" },
-                  { v: `${spikeRisk.bg_change_30m > 0 ? "+" : ""}${spikeRisk.bg_change_30m}`, l: "30 min" },
-                ].map((s) => (
-                  <View key={s.l} style={styles.statBox}>
-                    <Text style={styles.statBoxValue}>{s.v}</Text>
-                    <Text style={styles.statBoxLabel}>{s.l}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <Text style={styles.metaText}>
-                Last hour: {spikeRisk.carbs_60m} g carbs · {spikeRisk.bolus_60m} u insulin
-              </Text>
-              <Text style={styles.metaText}>
-                {formatUpdatedTime()}
-                {getPredictionSourceText() ? ` · ${getPredictionSourceText()}` : ""}
-              </Text>
-
-              <ResearchNote
-                label="Research prediction · not a dosing instruction"
-                details="This score comes from a model trained on research data. It estimates the chance of a glucose rise in the next 60 minutes and must not be used to decide an insulin dose."
-              />
-            </>
-          ) : spikeRisk?.status === "stale" ? (
-            <View style={styles.stateBox}>
-              <StatusPill tone="warning" icon="time" label="Reading too old" />
-              <Text style={styles.bodyText}>
-                {spikeRisk.message ?? "Your latest reading is too old for a 60-minute estimate."}
-                {spikeRisk.age_minutes != null ? ` (about ${Math.round(spikeRisk.age_minutes)} min old)` : ""}
-              </Text>
-              <Button label="Log new reading" icon="add-circle" size="md" onPress={() => setBgModalVisible(true)} />
-            </View>
-          ) : spikeRisk?.status === "not_ready" ? (
-            <View style={styles.stateBox}>
-              <StatusPill tone="brand" icon="hourglass" label={getNotReadyProgressText()} />
-              <Text style={styles.bodyText}>
-                {spikeRisk.message ??
-                  "A few more readings are needed before GlycoVision can estimate your next hour."}
-              </Text>
-              <Button label="Log reading" icon="add-circle" size="md" variant="secondary" onPress={() => setBgModalVisible(true)} />
-            </View>
-          ) : (
-            <View style={styles.centerRow}>
-              <Ionicons name="analytics-outline" size={22} color={colors.textFaint} />
-              <Text style={styles.muted}>Not available right now.</Text>
-            </View>
-          )}
-        </Card>
-      </Reveal>
-
-      {/* STRESS (from recent voice check) */}
-      {stressContext && (
-        <Reveal index={7}>
-          <Card>
-            <StressContextCard
-              context={stressContext}
-              compact
-              onLogBg={() => setBgModalVisible(true)}
-              onOpenBolus={() => router.push("/(tabs)/bolus")}
-              onVoiceCheck={() => router.push("/(tabs)/voice")}
-            />
-          </Card>
-        </Reveal>
-      )}
-
-      {/* ACTIVE INSULIN */}
-      <Reveal index={8}>
-        <Card>
-          <View style={[styles.cardHead, { marginBottom: 4 }]}>
-            <IconBadge icon="eyedrop-outline" tone="brand" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardHeadTitle}>Active insulin</Text>
-              <Text style={styles.cardHeadSub}>Action time {currentIob?.dia_hours ?? "—"} h</Text>
-            </View>
-            {loading ? (
-              <Skeleton width={60} height={28} />
-            ) : (
-              <View style={styles.iobRow}>
-                <AnimatedNumber
-                  value={currentIob?.iob != null ? Number(currentIob.iob) : null}
-                  decimals={1}
-                  style={styles.iobValue}
-                />
-                <Text style={styles.iobUnit}> u</Text>
-              </View>
-            )}
-          </View>
-          <ResearchNote
-            label="Research estimate · not for dosing"
-            details="Modelled from logged research bolus entries and your insulin duration (DIA). A logged estimate does not confirm insulin was taken, and this value must not be used to decide a dose."
-          />
-        </Card>
-      </Reveal>
-
       <LogBgSheet
         visible={bgModalVisible}
         onClose={() => setBgModalVisible(false)}
         lastValue={latestBg}
         onSave={async (value) => {
+          // The same number a moment ago is usually a double tap.
+          const prev = latestReading;
+          if (prev && Math.round(prev.value) === Math.round(value) && Date.now() - new Date(prev.logged_at).getTime() < 5 * 60_000) {
+            const again = await new Promise<boolean>((done) =>
+              Alert.alert(`You logged ${value} a moment ago`, "Save it again as a new reading?", [
+                { text: "No", style: "cancel", onPress: () => done(false) },
+                { text: "Save again", onPress: () => done(true) },
+              ], { cancelable: true, onDismiss: () => done(false) }),
+            );
+            if (!again) {
+              setBgModalVisible(false);
+              return;
+            }
+          }
+          // Low / high alerts and recheck reminders never wait for internet.
+          onBloodSugarLogged(value);
+          if (value < 70) {
+            logBg(value)
+              .then(() => load(true))
+              .catch(() => Alert.alert("Reading not saved", "Treat your low first. Then log this reading again."));
+            setBgModalVisible(false);
+            router.push("/low-help");
+            return;
+          }
           await logBg(value);
           haptic.success();
           setBgModalVisible(false);
-          // Low / high alerts and recheck reminders.
-          onBloodSugarLogged(value);
           await load(true);
-          if (value < 70) router.push("/low-help");
         }}
       />
     </Screen>
@@ -1146,6 +982,23 @@ const styles = StyleSheet.create({
   },
   quickPressed: { transform: [{ scale: 0.95 }], opacity: 0.9 },
   quickLabel: { fontSize: 13.5, fontWeight: "700", color: colors.text },
+
+  // Medicines
+  medRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 54,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  medDue: { backgroundColor: colors.warningSoft, borderColor: colors.warningSoft },
+  medText: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
 
   // Today stats
   statsCard: { flexDirection: "row", alignItems: "stretch", paddingVertical: 16, paddingHorizontal: 10 },

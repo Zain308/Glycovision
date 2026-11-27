@@ -120,6 +120,24 @@ def compare_feature(
 # OVERALL PERSONAL DEVIATION
 # =========================================================
 
+# An automatic clip must be this close in pitch to the user's usual voice.
+# Stress moves pitch too, but rarely by more than a few semitones. This is a
+# simple guard, not speaker identification.
+MAX_AUTO_SEMITONES = 4.0
+
+
+def is_probably_user(user_id: str, f0_mean) -> bool:
+    baseline = get_saved_baseline(user_id=user_id)
+    if baseline is None:
+        return False
+    usual = baseline.get("f0_mean_median")
+    if not _is_valid_number(f0_mean) or not _is_valid_number(usual):
+        return False
+    if float(f0_mean) <= 0 or float(usual) <= 0:
+        return False
+    return abs(12 * math.log2(float(f0_mean) / float(usual))) <= MAX_AUTO_SEMITONES
+
+
 _FETCH = object()
 
 

@@ -47,7 +47,8 @@ def update_profile(
     # Only include fields actually sent by the frontend, so a partial
     # update never overwrites ICR/ISF/etc. with None.
     update_data = payload.model_dump(
-        exclude_unset=True
+        exclude_unset=True,
+        mode="json",
     )
 
     if not update_data:

@@ -6,8 +6,8 @@ node_modules/
 .expo/
 dist/
 web-build/
-android/
-ios/
+/android/
+/ios/
 .kotlin/
 coverage/
 __tests__/

@@ -10,6 +10,7 @@ from core.user_time import (
     local_day_start_utc_iso,
 )
 from models.schemas import BgLogRequest
+from services.entries import save_once
 
 
 router = APIRouter(
@@ -27,12 +28,7 @@ def log_bg(
     payload: BgLogRequest,
     user_id: str = Depends(get_current_user),
 ):
-    db = get_db()
-
-    db.table("bg_readings").insert({
-        "user_id": user_id,
-        "value": payload.value,
-    }).execute()
+    save_once("bg_readings", user_id, {"value": payload.value}, payload)
 
     return {
         "status": "logged",

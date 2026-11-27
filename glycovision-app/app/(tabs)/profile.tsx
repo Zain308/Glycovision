@@ -29,8 +29,14 @@ import {
   updateProfile,
 } from "@/services/api";
 
-import { supabase } from "@/lib/supabase";
+import { setBackground, setMoveReminders } from '@/lib/backgroundSync';
+import { disconnectHealth } from '@/lib/healthConnect';
+import { scheduleMedicines } from '@/lib/notifications';
+import { flush, forgetCopies, offlineState } from '@/lib/offline';
+import { stopRecorder } from '@/lib/stepRecorder';
+import { storedSession, supabase } from "@/lib/supabase";
 import { validateClinicalSettings } from "@/constants/clinicalLimits";
+import { BodyDetails } from "@/components/BodyDetails";
 
 
 const DIABETES_TYPES = [
@@ -38,6 +44,7 @@ const DIABETES_TYPES = [
   "Type 2",
   "Gestational",
   "Other",
+  "No diabetes",
 ];
 
 
@@ -117,12 +124,7 @@ export default function ProfileScreen() {
         );
 
 
-        const { data } =
-          await supabase.auth.getUser();
-
-        setEmail(
-          data.user?.email ?? ""
-        );
+        setEmail((await storedSession())?.user.email ?? "");
 
       } catch (error) {
 
@@ -226,15 +228,36 @@ export default function ProfileScreen() {
   // -----------------------------------------------------
 
   const handleLogout = async () => {
+    await flush().catch(() => {});
+    if (offlineState().offline) {
+      Alert.alert("You're offline", "Log out when you have internet, so nothing you logged is lost.");
+      return;
+    }
+    if (offlineState().waiting.length) {
+      Alert.alert("Not everything is uploaded", "Some entries are still only on this phone. They upload the next time you sign in here.", [
+        { text: "Stay signed in", style: "cancel" },
+        { text: "Log out", style: "destructive", onPress: logout },
+      ]);
+      return;
+    }
+    await logout();
+  };
+
+  const logout = async () => {
 
     try {
+      const uid = (await storedSession())?.user.id;
 
+      // Someone else may sign in next: their account must not get these steps.
+      await Promise.all([stopRecorder(), disconnectHealth(), setBackground(false), setMoveReminders(false), scheduleMedicines([], true)]).catch(() => {});
       const { error } =
         await supabase.auth.signOut();
 
       if (error) {
         throw error;
       }
+      // The next person on this phone must not see this person's data.
+      if (uid) await forgetCopies(uid);
 
     } catch (error) {
 
@@ -337,6 +360,8 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
+      <BodyDetails hasDiabetes={diabetesType !== "No diabetes"} />
+
       <SectionHeader title="Insulin settings" />
       <Card>
         <Text style={styles.sectionSub}>
@@ -364,7 +389,31 @@ export default function ProfileScreen() {
 
       <Button label="Save changes" icon="checkmark" onPress={handleSave} loading={saving} />
 
-      <SectionHeader title="Safety & reminders" style={{ marginTop: 22 }} />
+      <SectionHeader title="Your care" style={{ marginTop: 22 }} />
+      <Card>
+        <ListRow
+          icon="medical"
+          title="Medicines"
+          detail="Your prescription, reminders and what you took"
+          onPress={() => router.push("/medicines" as any)}
+        />
+        <View style={styles.divider} />
+        <ListRow
+          icon="document-text"
+          title="Doctor's report"
+          detail="One PDF to share at your next visit"
+          onPress={() => router.push("/report" as any)}
+        />
+        <View style={styles.divider} />
+        <ListRow
+          icon="lock-closed"
+          title="Your data"
+          detail="Download or delete everything"
+          onPress={() => router.push("/my-data" as any)}
+        />
+      </Card>
+
+      <SectionHeader title="Safety & reminders" />
       <Card>
         <ListRow
           icon="notifications"
@@ -379,6 +428,16 @@ export default function ProfileScreen() {
           title="Low sugar help"
           detail="Rule of 15, timer and emergency contact"
           onPress={() => router.push("/low-help")}
+        />
+      </Card>
+
+      <SectionHeader title="Automatic health data" />
+      <Card>
+        <ListRow
+          icon="walk"
+          title="Activity & stress"
+          detail="Steps, heart rate, manual activity and automatic voice checks"
+          onPress={() => router.push("/activity" as any)}
         />
       </Card>
 

@@ -25,6 +25,7 @@ from services.voice_baseline import (
 
 from services.voice_deviation import (
     compare_to_personal_baseline,
+    is_probably_user,
 )
 
 from services.stress_context import get_stress_context
@@ -44,10 +45,16 @@ router = APIRouter(
 @router.post("/stress-analyze")
 async def stress_analyze(
     file: UploadFile = File(...),
+    auto: bool = False,
     user_id: str = Depends(
         get_current_user
     ),
 ):
+    """
+    `auto`: a clip recorded by itself while the app was open. It is kept
+    only if it sounds like this user (see is_probably_user), so another
+    person in the room doesn't count as the patient's stress.
+    """
 
     temp_name = (
         f"temp_voice_{uuid.uuid4().hex}.m4a"
@@ -93,6 +100,12 @@ async def stress_analyze(
             result,
         )
 
+
+        if auto:
+            if result.get("quality") == "limited":
+                raise ValueError("No clear speech in the automatic clip.")
+            if not is_probably_user(user_id, result.get("f0_mean")):
+                raise ValueError("The automatic clip did not match your voice.")
 
         # -------------------------------------------------
         # 3. SAVE RECORDING RESULT TO SUPABASE

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from core.auth import get_current_user
 from core.db import get_db
 from core.user_time import (
@@ -83,22 +83,25 @@ def timeline_today(user_id: str = Depends(get_current_user)):
         return res.data or []
 
     events = []
-    for m in rows("meals", "food_name, carbs, calories, logged_at"):
+    for m in rows("meals", "id, food_name, carbs, calories, logged_at"):
         events.append({
+            "id": m.get("id"),
             "type": "meal",
             "title": m.get("food_name") or "Meal",
             "detail": f"{round(m.get('carbs') or 0)} g carbs · {round(m.get('calories') or 0)} kcal",
             "logged_at": m["logged_at"],
         })
-    for b in rows("bolus_logs", "dose_units, carbs, logged_at"):
+    for b in rows("bolus_logs", "id, dose_units, carbs, logged_at"):
         events.append({
+            "id": b.get("id"),
             "type": "insulin",
             "title": f"{b.get('dose_units')} u insulin",
             "detail": f"For {round(b.get('carbs') or 0)} g carbs" if b.get("carbs") else "Research estimate saved",
             "logged_at": b["logged_at"],
         })
-    for r in rows("bg_readings", "value, logged_at"):
+    for r in rows("bg_readings", "id, value, logged_at"):
         events.append({
+            "id": r.get("id"),
             "type": "bg",
             "title": f"{round(r.get('value') or 0)} mg/dL",
             "detail": "Blood sugar reading",
@@ -108,3 +111,20 @@ def timeline_today(user_id: str = Depends(get_current_user)):
 
     events.sort(key=lambda e: e["logged_at"], reverse=True)
     return {"events": events[:30]}
+
+
+ENTRY_TABLES = {"bg": "bg_readings", "meal": "meals", "insulin": "bolus_logs"}
+
+
+@router.delete("/entries/{kind}/{entry_id}")
+def delete_entry(kind: str, entry_id: int, user_id: str = Depends(get_current_user)):
+    """A reading, meal or insulin dose logged by mistake or twice."""
+    table = ENTRY_TABLES.get(kind)
+    if not table:
+        raise HTTPException(status_code=404, detail="Unknown entry.")
+    db = get_db()
+    found = db.table(table).select("id").eq("id", entry_id).eq("user_id", user_id).limit(1).execute().data
+    if not found:
+        raise HTTPException(status_code=404, detail="This entry was already deleted.")
+    db.table(table).delete().eq("id", entry_id).eq("user_id", user_id).execute()
+    return {"status": "deleted"}

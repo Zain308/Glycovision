@@ -32,6 +32,7 @@ class _Query:
         self.filters = []
         self._order = None
         self._limit = None
+        self._range = None
         self.inserted = None
 
     # Builder methods return self, like the real client.
@@ -46,6 +47,18 @@ class _Query:
         self.filters.append(lambda r: str(r.get(col)) >= str(val))
         return self
 
+    def lt(self, col, val):
+        self.filters.append(lambda r: str(r.get(col)) < str(val))
+        return self
+
+    def delete(self):
+        self.inserted = "deleted"
+        return self
+
+    def range(self, a, b):
+        self._range = (a, b)
+        return self
+
     def order(self, col, desc=False):
         self._order = (col, desc)
         return self
@@ -56,6 +69,10 @@ class _Query:
 
     def insert(self, row):
         self.inserted = row
+        return self
+
+    def upsert(self, rows, on_conflict=None):
+        self.inserted = rows
         return self
 
     def update(self, row):
@@ -72,6 +89,8 @@ class _Query:
             rows.sort(key=lambda r: str(r.get(col)), reverse=desc)
         if self._limit is not None:
             rows = rows[: self._limit]
+        if self._range is not None:
+            rows = rows[self._range[0]: self._range[1] + 1]
         return _Result(rows)
 
 

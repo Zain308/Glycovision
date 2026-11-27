@@ -52,6 +52,7 @@ export const colors = {
   // Data accents
   carbs: '#E07B10',
   insulin: '#1E6FE8',
+  heart: '#B8408F', // Heart Points; checked against primary for colour blindness
 };
 
 // Plus Jakarta Sans, loaded in app/_layout.tsx. Use these instead of fontWeight:

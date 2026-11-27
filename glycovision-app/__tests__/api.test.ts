@@ -1,18 +1,25 @@
 // services/api.ts network wrapper: timeouts, retry rules and errors.
 
 jest.mock('@/lib/supabase', () => ({
+  storedSession: jest.fn(() => Promise.resolve({ refresh_token: 'r', user: { id: 'u1' } })),
   supabase: { auth: { getSession: jest.fn(() => Promise.resolve({ data: { session: { access_token: 'tok' } }, error: null })) } },
 }));
 jest.mock('expo-file-system/legacy', () => ({}));
 jest.mock('@/lib/config', () => ({ API_URL: 'http://test' }));
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
-import { getFoodLibrary, logMeal } from '@/services/api';
+import { closeOutbox } from '@/lib/offline';
+import { calculateIntervention, getFoodLibrary, logMeal } from '@/services/api';
 
 const ok = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
 let fetchMock: jest.Mock;
 
-beforeEach(() => {
+const DOSE = { current_bg: 150, target_bg: 110, isf: 50, iob: 0, total_carbs: 30, icr: 10 };
+
+beforeEach(async () => {
+  await AsyncStorage.clear();
+  closeOutbox();
   fetchMock = jest.fn();
   (globalThis as any).fetch = fetchMock;
   jest.useRealTimers();
@@ -39,7 +46,11 @@ test('GET gives a plain-language error after two failures', async () => {
 
 test('POST is never retried (no double logging)', async () => {
   fetchMock.mockRejectedValue(new TypeError('Network request failed'));
-  await expect(logMeal({ food_name: 'x', carbs: 10, protein: 0, fat: 0, calories: 0 } as any)).rejects.toThrow();
+  await expect(calculateIntervention(DOSE)).rejects.toThrow();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  // A logged meal is kept on the phone instead (offline.test.ts).
+  fetchMock.mockClear();
+  expect(await logMeal({ food_name: 'x', carbs: 10 })).toEqual({ status: 'queued' });
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
@@ -48,7 +59,7 @@ test('a hanging request times out instead of spinning forever', async () => {
   fetchMock.mockImplementation((_u: string, init: RequestInit) =>
     new Promise((_res, rej) => init.signal!.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })))),
   );
-  const p = logMeal({ food_name: 'x', carbs: 10, protein: 0, fat: 0, calories: 0 } as any);
+  const p = calculateIntervention(DOSE);
   const assertion = expect(p).rejects.toThrow(/took too long/);
   await jest.advanceTimersByTimeAsync(20_001);
   await assertion;

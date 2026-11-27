@@ -12,6 +12,7 @@ import shutil
 import threading
 import uuid
 
+from services.entries import save_once
 from services.vision import analyze_image, build_dish_result, NUTRITION_TABLE
 from services.portions import portion_for
 from services.food_classifier import get_food_classifier
@@ -303,32 +304,13 @@ def log_meal(
     user_id: str = Depends(get_current_user),
 ):
 
-    db = get_db()
-
-
-    db.table(
-        "meals"
-    ).insert({
-
-        "user_id":
-            user_id,
-
-        "food_name":
-            payload.food_name,
-
-        "carbs":
-            payload.carbs,
-
-        "protein":
-            payload.protein,
-
-        "fat":
-            payload.fat,
-
-        "calories":
-            payload.calories,
-
-    }).execute()
+    save_once("meals", user_id, {
+        "food_name": payload.food_name,
+        "carbs": payload.carbs,
+        "protein": payload.protein,
+        "fat": payload.fat,
+        "calories": payload.calories,
+    }, payload)
 
 
     return {

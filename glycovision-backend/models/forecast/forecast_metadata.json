@@ -1,0 +1,846 @@
+{
+ "model_version": "glycovision-forecast-v2",
+ "effect_share": 0.2,
+ "reach": {
+  "15": [
+   1.0,
+   0.0
+  ],
+  "30": [
+   1.0,
+   0.0
+  ],
+  "45": [
+   0.9,
+   0.0
+  ],
+  "60": [
+   0.64,
+   0.0
+  ]
+ },
+ "features": [
+  "current_bg",
+  "delta_5",
+  "delta_10",
+  "delta_15",
+  "delta_20",
+  "delta_30",
+  "delta_45",
+  "delta_60",
+  "hr_15m",
+  "hr_60m",
+  "steps_15m",
+  "steps_60m",
+  "hour_sin",
+  "hour_cos"
+ ],
+ "horizons": [
+  15,
+  30,
+  45,
+  60
+ ],
+ "dataset": "HUPA-UCM Diabetes Dataset (carbs converted to grams)",
+ "samples": 121787,
+ "patients": 25,
+ "spike_rate": 0.1747,
+ "low_rate": 0.1156,
+ "band_margins": {
+  "cgm_watch": {
+   "15": 0.99,
+   "30": 2.28,
+   "45": 3.36,
+   "60": 4.7
+  },
+  "cgm": {
+   "15": 0.78,
+   "30": 1.47,
+   "45": 2.28,
+   "60": 3.27
+  },
+  "fingerstick_3": {
+   "15": 0.5,
+   "30": 1.11,
+   "45": 1.99,
+   "60": 2.71
+  },
+  "fingerstick_1": {
+   "15": 0.53,
+   "30": 1.25,
+   "45": 2.08,
+   "60": 3.01
+  },
+  "single_watch": {
+   "15": 1.15,
+   "30": 2.68,
+   "45": 3.86,
+   "60": 4.97
+  },
+  "single": {
+   "15": 0.66,
+   "30": 1.37,
+   "45": 2.29,
+   "60": 2.82
+  }
+ },
+ "evaluation": {
+  "cgm_watch": {
+   "horizons": {
+    "15": {
+     "mae": 5.476,
+     "rmse": 9.2,
+     "mae_no_change": 9.231,
+     "coverage_raw": 0.757,
+     "coverage": 0.812,
+     "coverage_worst_patient": 0.625,
+     "band_width": 16.459
+    },
+    "30": {
+     "mae": 12.371,
+     "rmse": 18.154,
+     "mae_no_change": 16.985,
+     "coverage_raw": 0.748,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.697,
+     "band_width": 38.626
+    },
+    "45": {
+     "mae": 18.789,
+     "rmse": 26.497,
+     "mae_no_change": 23.559,
+     "coverage_raw": 0.747,
+     "coverage": 0.805,
+     "coverage_worst_patient": 0.721,
+     "band_width": 58.965
+    },
+    "60": {
+     "mae": 24.254,
+     "rmse": 33.538,
+     "mae_no_change": 29.22,
+     "coverage_raw": 0.74,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.712,
+     "band_width": 76.746,
+     "direction_accuracy": 0.598,
+     "direction_accuracy_always_steady": 0.491,
+     "direction_right_when_called": 0.808,
+     "called_share": 0.332,
+     "uncovered_meals": 501.0,
+     "uncovered_mae": 31.103,
+     "uncovered_bias": -6.635,
+     "uncovered_spike_said": 0.469,
+     "uncovered_spike_seen": 0.441
+    }
+   },
+   "spike_auc": 0.799,
+   "spike_calibration": {
+    "(0.0, 0.1]": [
+     0.033,
+     0.057,
+     62116
+    ],
+    "(0.1, 0.2]": [
+     0.145,
+     0.151,
+     20650
+    ],
+    "(0.2, 0.3]": [
+     0.247,
+     0.219,
+     12704
+    ],
+    "(0.3, 0.4]": [
+     0.348,
+     0.307,
+     9118
+    ],
+    "(0.4, 0.5]": [
+     0.448,
+     0.416,
+     7026
+    ],
+    "(0.5, 0.7]": [
+     0.585,
+     0.573,
+     8549
+    ],
+    "(0.7, 1.0]": [
+     0.75,
+     0.772,
+     1624
+    ]
+   },
+   "low_auc": 0.953,
+   "low_calibration": {
+    "(0.0, 0.1]": [
+     0.008,
+     0.012,
+     94484
+    ],
+    "(0.1, 0.2]": [
+     0.145,
+     0.149,
+     6485
+    ],
+    "(0.2, 0.3]": [
+     0.248,
+     0.256,
+     4117
+    ],
+    "(0.3, 0.4]": [
+     0.348,
+     0.401,
+     3225
+    ],
+    "(0.4, 0.5]": [
+     0.449,
+     0.498,
+     2582
+    ],
+    "(0.5, 0.7]": [
+     0.595,
+     0.63,
+     4045
+    ],
+    "(0.7, 1.0]": [
+     0.887,
+     0.843,
+     6849
+    ]
+   }
+  },
+  "cgm": {
+   "horizons": {
+    "15": {
+     "mae": 5.478,
+     "rmse": 9.224,
+     "mae_no_change": 9.231,
+     "coverage_raw": 0.771,
+     "coverage": 0.812,
+     "coverage_worst_patient": 0.627,
+     "band_width": 16.273
+    },
+    "30": {
+     "mae": 12.4,
+     "rmse": 18.268,
+     "mae_no_change": 16.985,
+     "coverage_raw": 0.771,
+     "coverage": 0.807,
+     "coverage_worst_patient": 0.709,
+     "band_width": 38.181
+    },
+    "45": {
+     "mae": 18.783,
+     "rmse": 26.594,
+     "mae_no_change": 23.559,
+     "coverage_raw": 0.769,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.727,
+     "band_width": 58.648
+    },
+    "60": {
+     "mae": 24.237,
+     "rmse": 33.663,
+     "mae_no_change": 29.22,
+     "coverage_raw": 0.764,
+     "coverage": 0.807,
+     "coverage_worst_patient": 0.717,
+     "band_width": 76.468,
+     "direction_accuracy": 0.599,
+     "direction_accuracy_always_steady": 0.491,
+     "direction_right_when_called": 0.807,
+     "called_share": 0.323,
+     "uncovered_meals": 501.0,
+     "uncovered_mae": 31.192,
+     "uncovered_bias": -3.644,
+     "uncovered_spike_said": 0.435,
+     "uncovered_spike_seen": 0.441
+    }
+   },
+   "spike_auc": 0.798,
+   "spike_calibration": {
+    "(0.0, 0.1]": [
+     0.037,
+     0.055,
+     59980
+    ],
+    "(0.1, 0.2]": [
+     0.145,
+     0.145,
+     21860
+    ],
+    "(0.2, 0.3]": [
+     0.247,
+     0.221,
+     13314
+    ],
+    "(0.3, 0.4]": [
+     0.347,
+     0.3,
+     9795
+    ],
+    "(0.4, 0.5]": [
+     0.448,
+     0.418,
+     7188
+    ],
+    "(0.5, 0.7]": [
+     0.585,
+     0.589,
+     8308
+    ],
+    "(0.7, 1.0]": [
+     0.747,
+     0.784,
+     1342
+    ]
+   },
+   "low_auc": 0.954,
+   "low_calibration": {
+    "(0.0, 0.1]": [
+     0.009,
+     0.011,
+     92947
+    ],
+    "(0.1, 0.2]": [
+     0.145,
+     0.12,
+     6609
+    ],
+    "(0.2, 0.3]": [
+     0.248,
+     0.219,
+     4294
+    ],
+    "(0.3, 0.4]": [
+     0.348,
+     0.34,
+     3385
+    ],
+    "(0.4, 0.5]": [
+     0.449,
+     0.479,
+     2809
+    ],
+    "(0.5, 0.7]": [
+     0.594,
+     0.616,
+     4514
+    ],
+    "(0.7, 1.0]": [
+     0.882,
+     0.838,
+     7229
+    ]
+   }
+  },
+  "fingerstick_3": {
+   "horizons": {
+    "15": {
+     "mae": 6.192,
+     "rmse": 9.783,
+     "mae_no_change": 9.231,
+     "coverage_raw": 0.783,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.686,
+     "band_width": 18.902
+    },
+    "30": {
+     "mae": 13.152,
+     "rmse": 19.098,
+     "mae_no_change": 16.985,
+     "coverage_raw": 0.78,
+     "coverage": 0.804,
+     "coverage_worst_patient": 0.713,
+     "band_width": 41.288
+    },
+    "45": {
+     "mae": 19.463,
+     "rmse": 27.467,
+     "mae_no_change": 23.559,
+     "coverage_raw": 0.775,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.721,
+     "band_width": 61.364
+    },
+    "60": {
+     "mae": 24.843,
+     "rmse": 34.436,
+     "mae_no_change": 29.22,
+     "coverage_raw": 0.771,
+     "coverage": 0.805,
+     "coverage_worst_patient": 0.708,
+     "band_width": 78.65,
+     "direction_accuracy": 0.583,
+     "direction_accuracy_always_steady": 0.491,
+     "direction_right_when_called": 0.794,
+     "called_share": 0.291,
+     "uncovered_meals": 501.0,
+     "uncovered_mae": 31.842,
+     "uncovered_bias": -2.253,
+     "uncovered_spike_said": 0.423,
+     "uncovered_spike_seen": 0.441
+    }
+   },
+   "spike_auc": 0.784,
+   "spike_calibration": {
+    "(0.0, 0.1]": [
+     0.039,
+     0.057,
+     54845
+    ],
+    "(0.1, 0.2]": [
+     0.146,
+     0.134,
+     24011
+    ],
+    "(0.2, 0.3]": [
+     0.247,
+     0.216,
+     15853
+    ],
+    "(0.3, 0.4]": [
+     0.347,
+     0.3,
+     11031
+    ],
+    "(0.4, 0.5]": [
+     0.446,
+     0.42,
+     7893
+    ],
+    "(0.5, 0.7]": [
+     0.578,
+     0.582,
+     7386
+    ],
+    "(0.7, 1.0]": [
+     0.742,
+     0.779,
+     768
+    ]
+   },
+   "low_auc": 0.955,
+   "low_calibration": {
+    "(0.0, 0.1]": [
+     0.01,
+     0.011,
+     91880
+    ],
+    "(0.1, 0.2]": [
+     0.146,
+     0.1,
+     6727
+    ],
+    "(0.2, 0.3]": [
+     0.248,
+     0.192,
+     4426
+    ],
+    "(0.3, 0.4]": [
+     0.349,
+     0.328,
+     3751
+    ],
+    "(0.4, 0.5]": [
+     0.449,
+     0.465,
+     3086
+    ],
+    "(0.5, 0.7]": [
+     0.593,
+     0.626,
+     4781
+    ],
+    "(0.7, 1.0]": [
+     0.878,
+     0.831,
+     7136
+    ]
+   }
+  },
+  "fingerstick_1": {
+   "horizons": {
+    "15": {
+     "mae": 7.285,
+     "rmse": 11.012,
+     "mae_no_change": 9.231,
+     "coverage_raw": 0.786,
+     "coverage": 0.804,
+     "coverage_worst_patient": 0.684,
+     "band_width": 22.925
+    },
+    "30": {
+     "mae": 14.358,
+     "rmse": 20.578,
+     "mae_no_change": 16.985,
+     "coverage_raw": 0.781,
+     "coverage": 0.804,
+     "coverage_worst_patient": 0.701,
+     "band_width": 45.935
+    },
+    "45": {
+     "mae": 20.544,
+     "rmse": 28.783,
+     "mae_no_change": 23.559,
+     "coverage_raw": 0.777,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.699,
+     "band_width": 65.596
+    },
+    "60": {
+     "mae": 25.863,
+     "rmse": 35.637,
+     "mae_no_change": 29.22,
+     "coverage_raw": 0.771,
+     "coverage": 0.806,
+     "coverage_worst_patient": 0.697,
+     "band_width": 82.964,
+     "direction_accuracy": 0.559,
+     "direction_accuracy_always_steady": 0.491,
+     "direction_right_when_called": 0.772,
+     "called_share": 0.229,
+     "uncovered_meals": 501.0,
+     "uncovered_mae": 32.24,
+     "uncovered_bias": -0.081,
+     "uncovered_spike_said": 0.401,
+     "uncovered_spike_seen": 0.441
+    }
+   },
+   "spike_auc": 0.755,
+   "spike_calibration": {
+    "(0.0, 0.1]": [
+     0.043,
+     0.062,
+     48630
+    ],
+    "(0.1, 0.2]": [
+     0.146,
+     0.137,
+     27435
+    ],
+    "(0.2, 0.3]": [
+     0.247,
+     0.214,
+     19470
+    ],
+    "(0.3, 0.4]": [
+     0.346,
+     0.308,
+     13428
+    ],
+    "(0.4, 0.5]": [
+     0.444,
+     0.413,
+     7436
+    ],
+    "(0.5, 0.7]": [
+     0.576,
+     0.575,
+     5054
+    ],
+    "(0.7, 1.0]": [
+     0.736,
+     0.617,
+     334
+    ]
+   },
+   "low_auc": 0.952,
+   "low_calibration": {
+    "(0.0, 0.1]": [
+     0.011,
+     0.012,
+     90761
+    ],
+    "(0.1, 0.2]": [
+     0.145,
+     0.094,
+     7258
+    ],
+    "(0.2, 0.3]": [
+     0.248,
+     0.173,
+     4737
+    ],
+    "(0.3, 0.4]": [
+     0.348,
+     0.304,
+     3964
+    ],
+    "(0.4, 0.5]": [
+     0.448,
+     0.472,
+     3122
+    ],
+    "(0.5, 0.7]": [
+     0.595,
+     0.613,
+     4777
+    ],
+    "(0.7, 1.0]": [
+     0.874,
+     0.825,
+     7168
+    ]
+   }
+  },
+  "single_watch": {
+   "horizons": {
+    "15": {
+     "mae": 9.189,
+     "rmse": 13.135,
+     "mae_no_change": 9.231,
+     "coverage_raw": 0.766,
+     "coverage": 0.8,
+     "coverage_worst_patient": 0.648,
+     "band_width": 29.292
+    },
+    "30": {
+     "mae": 16.849,
+     "rmse": 23.31,
+     "mae_no_change": 16.985,
+     "coverage_raw": 0.754,
+     "coverage": 0.799,
+     "coverage_worst_patient": 0.658,
+     "band_width": 54.147
+    },
+    "45": {
+     "mae": 23.211,
+     "rmse": 31.588,
+     "mae_no_change": 23.559,
+     "coverage_raw": 0.75,
+     "coverage": 0.799,
+     "coverage_worst_patient": 0.67,
+     "band_width": 74.185
+    },
+    "60": {
+     "mae": 28.481,
+     "rmse": 38.274,
+     "mae_no_change": 29.22,
+     "coverage_raw": 0.746,
+     "coverage": 0.799,
+     "coverage_worst_patient": 0.666,
+     "band_width": 91.307,
+     "direction_accuracy": 0.509,
+     "direction_accuracy_always_steady": 0.491,
+     "direction_right_when_called": 0.703,
+     "called_share": 0.166,
+     "uncovered_meals": 501.0,
+     "uncovered_mae": 31.035,
+     "uncovered_bias": 0.969,
+     "uncovered_spike_said": 0.43,
+     "uncovered_spike_seen": 0.441
+    }
+   },
+   "spike_auc": 0.682,
+   "spike_calibration": {
+    "(0.0, 0.1]": [
+     0.05,
+     0.083,
+     40159
+    ],
+    "(0.1, 0.2]": [
+     0.148,
+     0.152,
+     35358
+    ],
+    "(0.2, 0.3]": [
+     0.245,
+     0.203,
+     23352
+    ],
+    "(0.3, 0.4]": [
+     0.345,
+     0.29,
+     12100
+    ],
+    "(0.4, 0.5]": [
+     0.444,
+     0.372,
+     6716
+    ],
+    "(0.5, 0.7]": [
+     0.566,
+     0.446,
+     3891
+    ],
+    "(0.7, 1.0]": [
+     0.736,
+     0.417,
+     211
+    ]
+   },
+   "low_auc": 0.937,
+   "low_calibration": {
+    "(0.0, 0.1]": [
+     0.012,
+     0.016,
+     90415
+    ],
+    "(0.1, 0.2]": [
+     0.145,
+     0.12,
+     8476
+    ],
+    "(0.2, 0.3]": [
+     0.247,
+     0.229,
+     5488
+    ],
+    "(0.3, 0.4]": [
+     0.346,
+     0.328,
+     3812
+    ],
+    "(0.4, 0.5]": [
+     0.447,
+     0.462,
+     2670
+    ],
+    "(0.5, 0.7]": [
+     0.597,
+     0.584,
+     4186
+    ],
+    "(0.7, 1.0]": [
+     0.879,
+     0.803,
+     6740
+    ]
+   }
+  },
+  "single": {
+   "horizons": {
+    "15": {
+     "mae": 9.218,
+     "rmse": 13.189,
+     "mae_no_change": 9.231,
+     "coverage_raw": 0.781,
+     "coverage": 0.798,
+     "coverage_worst_patient": 0.653,
+     "band_width": 29.5
+    },
+    "30": {
+     "mae": 16.888,
+     "rmse": 23.425,
+     "mae_no_change": 16.985,
+     "coverage_raw": 0.778,
+     "coverage": 0.799,
+     "coverage_worst_patient": 0.652,
+     "band_width": 54.393
+    },
+    "45": {
+     "mae": 23.256,
+     "rmse": 31.745,
+     "mae_no_change": 23.559,
+     "coverage_raw": 0.773,
+     "coverage": 0.8,
+     "coverage_worst_patient": 0.65,
+     "band_width": 74.909
+    },
+    "60": {
+     "mae": 28.53,
+     "rmse": 38.465,
+     "mae_no_change": 29.22,
+     "coverage_raw": 0.77,
+     "coverage": 0.797,
+     "coverage_worst_patient": 0.651,
+     "band_width": 91.817,
+     "direction_accuracy": 0.501,
+     "direction_accuracy_always_steady": 0.491,
+     "direction_right_when_called": 0.677,
+     "called_share": 0.136,
+     "uncovered_meals": 501.0,
+     "uncovered_mae": 31.95,
+     "uncovered_bias": 4.584,
+     "uncovered_spike_said": 0.373,
+     "uncovered_spike_seen": 0.441
+    }
+   },
+   "spike_auc": 0.669,
+   "spike_calibration": {
+    "(0.0, 0.1]": [
+     0.066,
+     0.093,
+     30010
+    ],
+    "(0.1, 0.2]": [
+     0.148,
+     0.135,
+     42633
+    ],
+    "(0.2, 0.3]": [
+     0.244,
+     0.197,
+     26953
+    ],
+    "(0.3, 0.4]": [
+     0.344,
+     0.285,
+     12835
+    ],
+    "(0.4, 0.5]": [
+     0.444,
+     0.387,
+     6403
+    ],
+    "(0.5, 0.7]": [
+     0.562,
+     0.442,
+     2839
+    ],
+    "(0.7, 1.0]": [
+     0.737,
+     0.395,
+     114
+    ]
+   },
+   "low_auc": 0.938,
+   "low_calibration": {
+    "(0.0, 0.1]": [
+     0.014,
+     0.014,
+     87477
+    ],
+    "(0.1, 0.2]": [
+     0.146,
+     0.102,
+     8870
+    ],
+    "(0.2, 0.3]": [
+     0.247,
+     0.169,
+     6108
+    ],
+    "(0.3, 0.4]": [
+     0.347,
+     0.286,
+     4395
+    ],
+    "(0.4, 0.5]": [
+     0.449,
+     0.414,
+     2966
+    ],
+    "(0.5, 0.7]": [
+     0.596,
+     0.569,
+     4784
+    ],
+    "(0.7, 1.0]": [
+     0.87,
+     0.795,
+     7187
+    ]
+   }
+  }
+ },
+ "evaluation_method": "5-fold, grouped by patient, averaged per patient",
+ "trained_at": "2026-11-23T16:10:52.901173+00:00",
+ "limitations": [
+  "25 adults with type 1 diabetes in Spain.",
+  "Not clinically validated.",
+  "Must not be used to choose an insulin dose."
+ ]
+}

@@ -8,6 +8,9 @@ from routers import (
     profile,
     bg,
     spike,
+    care,
+    fitness,
+    health,
 )
 from core.config import get_settings
 from core.rate_limit import RateLimitMiddleware
@@ -45,6 +48,9 @@ app.include_router(bg.router)
 app.include_router(
     spike.router
 )
+app.include_router(health.router)
+app.include_router(fitness.router)
+app.include_router(care.router)
 
 
 @app.get("/")

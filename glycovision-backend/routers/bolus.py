@@ -6,8 +6,10 @@ from models.schemas import (
     BolusLogRequest,
 )
 
+from services.entries import save_once
 from services.bolus_engine import calculate_safe_bolus
 from services.stress_context import get_stress_context
+from services.care_plan import test_calculator_dose
 from services.iob_engine import (
     calculate_current_iob,
     effective_dia_hours,
@@ -37,6 +39,14 @@ def calculate_intervention(
     user_id: str = Depends(get_current_user),
 ):
     result = calculate_safe_bolus(state)
+
+    # Same insulin-curve test as the care plan, so both screens agree. It
+    # can only lower the estimate (or withhold it for insulins that don't
+    # fit the model).
+    try:
+        test_calculator_dose(user_id, state, result)
+    except Exception as error:
+        print("[Bolus] Dose test unavailable:", repr(error)[:200])
 
     # Attach stress context from a recent voice check. It adds advice
     # beside the estimate and never changes the dose. A failure here must
@@ -87,14 +97,11 @@ def log_bolus(
     payload: BolusLogRequest,
     user_id: str = Depends(get_current_user),
 ):
-    db = get_db()
-
-    db.table("bolus_logs").insert({
-        "user_id": user_id,
+    save_once("bolus_logs", user_id, {
         "dose_units": payload.dose_units,
         "carbs": payload.carbs,
         "current_bg": payload.current_bg,
-    }).execute()
+    }, payload)
 
     return {
         "status": "logged",

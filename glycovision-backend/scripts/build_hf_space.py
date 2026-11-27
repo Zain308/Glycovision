@@ -27,6 +27,7 @@ INCLUDE = [
     "models/class_names.json",
     "models/pakistani_food_model.pth",
     "models/spike_prediction",
+    "models/forecast",
 ]
 SKIP_NAMES = {"__pycache__", ".env", "tmp", "venv", ".pytest_cache"}
 SKIP_SUFFIXES = {".pyc", ".csv"}  # spike_prediction CSVs are training reports
@@ -82,7 +83,7 @@ GITATTRIBUTES = """*.pth filter=lfs diff=lfs merge=lfs -text
 def copy(src: Path, dst: Path) -> int:
     if src.name in SKIP_NAMES or src.suffix in SKIP_SUFFIXES:
         return 0
-    if src.suffix == ".joblib":
+    if src.suffix == ".joblib" and src.parent.name == "spike_prediction":
         packed = COMPRESSED_MODELS / src.name
         if not packed.exists():
             sys.exit(f"Run scripts/compress_models.py {COMPRESSED_MODELS} first (missing {packed.name})")

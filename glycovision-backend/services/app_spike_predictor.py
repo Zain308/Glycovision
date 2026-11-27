@@ -457,6 +457,11 @@ def _run_model(model, metadata: dict, features: dict):
         )
 
     ordered = {name: float(features[name]) for name in required}
+    # These models were trained on HUPA-UCM carbs in servings (1 serving =
+    # 10 g, for most patients), but the app works in grams. The newer
+    # forecast model (ml/train_forecast.py) is trained in grams instead.
+    if "carbs_60m" in ordered:
+        ordered["carbs_60m"] /= 10.0
     X = pd.DataFrame([ordered], columns=required)
 
     probability = float(model.predict_proba(X)[0][1])

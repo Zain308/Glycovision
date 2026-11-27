@@ -1,5 +1,5 @@
 // app/login.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { LogoMark } from '@/components/ui/Logo';
 import { colors, radius, shadow } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { googleEnabled, signInWithGoogle } from '@/lib/googleSignIn';
 
 function Field({
   icon,
@@ -44,6 +45,24 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Shown only when Google is switched on in Supabase.
+  const [google, setGoogle] = useState(false);
+
+  useEffect(() => {
+    googleEnabled().then(setGoogle);
+  }, []);
+
+  const handleGoogle = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      setError(e?.message ?? 'Google sign-in did not work. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     if (!email.trim() || !password) {
@@ -160,6 +179,16 @@ export default function LoginScreen() {
             loading={loading}
             style={{ marginTop: 18 }}
           />
+          {google ? (
+            <Button
+              label="Continue with Google"
+              icon="logo-google"
+              variant="secondary"
+              onPress={handleGoogle}
+              disabled={loading}
+              style={{ marginTop: 10 }}
+            />
+          ) : null}
 
           <Pressable
             onPress={() => {

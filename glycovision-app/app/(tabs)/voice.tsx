@@ -37,6 +37,7 @@ import { onStressCheck } from "@/lib/notifications";
 import { router } from "expo-router";
 import { StressContextCard } from "@/components/StressContextCard";
 import { ResearchNote } from "@/components/ui/ResearchNote";
+import { isDisconnected } from "@/lib/offline";
 import { supabase } from "@/lib/supabase";
 
 import { colors, spacing, radius, type } from "@/constants/theme";
@@ -256,7 +257,11 @@ export default function VoiceScreen() {
   // Returns true only when the microphone is usable. Called on screen
   // load and again before every recording, so a user who denied access
   // is asked again (or sent to Settings) instead of hitting a silent error.
-  const ensureMicReady = async (): Promise<boolean> => {
+  const ensureMicReady = async (forRecording = false): Promise<boolean> => {
+    if (forRecording && isDisconnected()) {
+      Alert.alert("Voice check needs internet", "Your voice is analysed on our server. Try again when you are online.");
+      return false;
+    }
     try {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
 
@@ -309,7 +314,7 @@ export default function VoiceScreen() {
 
   const startRecording = async () => {
     try {
-      if (!(await ensureMicReady())) {
+      if (!(await ensureMicReady(true))) {
         return;
       }
 

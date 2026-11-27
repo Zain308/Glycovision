@@ -19,11 +19,16 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
 import { colors } from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
+import { storedSession, supabase } from '@/lib/supabase';
 import LoginScreen from './login';
 import { AppErrorScreen } from '@/components/AppErrorScreen';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { DisclaimerGate } from '@/components/DisclaimerGate';
+import { AutoVoiceCheck } from '@/components/AutoVoiceCheck';
+// Defines the background task; must load before any screen.
+import '@/lib/backgroundSync';
 import { configureNotifications, listenForTaps } from '@/lib/notifications';
+import { useOfflineSync } from '@/lib/useOfflineSync';
 
 // A crashed screen shows a calm "Try again" page instead of a red error.
 export function ErrorBoundary(props: { error: Error; retry: () => Promise<void> }) {
@@ -46,15 +51,13 @@ function useAuthSession() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => setSession(data.session))
-      // If the stored session can't be read, show login rather than
-      // leaving the splash screen up forever.
-      .catch(() => setSession(null))
+    // The login on the phone decides, so the app opens without internet. An
+    // expired token is renewed later; only a real sign-out shows the login.
+    storedSession()
+      .then((stored) => setSession((now: any) => now ?? stored))
       .finally(() => setReady(true));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (newSession || event === 'SIGNED_OUT') setSession(newSession);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -104,6 +107,7 @@ const appTheme = {
 
 function RootLayoutNav() {
   const { session, ready } = useAuthSession();
+  useOfflineSync(session?.user?.id ?? null);
 
   // Tapping a notification opens its screen (only once signed in).
   useEffect(() => {
@@ -141,8 +145,15 @@ function RootLayoutNav() {
           <Stack.Screen name="reminders" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="low-help" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="notifications" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="activity" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="medicines" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="report" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="my-data" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="workout" options={{ headerShown: false, presentation: 'card', gestureEnabled: false }} />
         </Stack>
         <OfflineBanner />
+        <AutoVoiceCheck />
+        <DisclaimerGate />
       </View>
     </ThemeProvider>
   );

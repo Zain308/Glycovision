@@ -34,10 +34,13 @@ const ID = {
   postMeal: 'gv-post-meal',
   lowTimer: 'gv-low-timer',
   stressRecheck: 'gv-stress-recheck',
+  planRecheck: 'gv-plan-recheck',
+  move: 'gv-move',
 };
 
 const KEY_REMINDERS = 'gv.reminders.v1';
 const KEY_LAST_RISK_ALERT = 'gv.lastRiskAlert';
+const KEY_LAST_LOW_ALERT = 'gv.lastLowAlert';
 const KEY_SMART = 'gv.smartAlerts.v1';
 
 // Smart health alerts can be switched off in Reminders (default: on).
@@ -319,6 +322,75 @@ export async function onStressCheck(level: string | null | undefined) {
   );
 }
 
+// "Check again at ..." at the end of the plan. False when not allowed.
+export async function remindToCheck(minutes: number): Promise<boolean> {
+  if (!ENABLED || !(await ensurePermission())) return false;
+  await notify(
+    {
+      title: 'Time to check your sugar',
+      body: 'Log a new reading to update your 60-minute forecast and plan.',
+      url: '/?logBg=1',
+      kind: 'reminder',
+    },
+    inSeconds(minutes * 60),
+    ID.planRecheck,
+  );
+  return true;
+}
+
+// After an hour of sitting (lib/backgroundSync.ts, only if turned on).
+export async function moveReminder(minutes: number) {
+  if (!ENABLED) return;
+  await notify(
+    {
+      title: 'Time to move',
+      body: `You’ve been still for about ${Math.floor(minutes / 60)} hour${minutes >= 120 ? 's' : ''}. Stand up and walk for 3 minutes. If your sugar is low, treat it first.`,
+      url: '/fitness',
+      kind: 'reminder',
+    },
+    now(),
+    ID.move,
+  );
+}
+
+// From the 60-minute forecast: a likely low comes first, then a spike.
+export async function onForecast(f: {
+  status: string;
+  alert?: string;
+  based_on?: string;
+  low_probability?: number;
+  spike_probability?: number;
+  current_bg?: number;
+}) {
+  if (f.status !== 'ready') return;
+  const low = f.low_probability ?? 0;
+  const spike = f.spike_probability ?? 0;
+  if ((f.current_bg ?? 0) >= 70 && low >= 0.4) {
+    if (!(await smartAlertsEnabled())) return;
+    try {
+      const last = Number(await AsyncStorage.getItem(KEY_LAST_LOW_ALERT)) || 0;
+      if (Date.now() - last < 30 * 60 * 1000) return;
+      await AsyncStorage.setItem(KEY_LAST_LOW_ALERT, String(Date.now()));
+    } catch {
+      return;
+    }
+    await notify(
+      {
+        title: 'Your sugar may go low',
+        body: `About ${Math.round(low * 100)}% chance of going below 70 in the next hour. Keep fast sugar close and check again soon.`,
+        url: '/',
+        kind: 'low',
+        alert: true,
+      },
+      now(),
+    );
+    return;
+  }
+  // One reading can't show a trend, so it never triggers a spike alert.
+  if (f.based_on?.startsWith('single')) return;
+  await onSpikeRisk(spike >= 0.4 ? 'elevated' : undefined, Math.round(spike * 100));
+}
+
 // Low sugar help: 15-minute timer finished.
 export async function startLowTimerAlert(seconds = 15 * 60) {
   await notify(
@@ -417,6 +489,52 @@ export async function saveReminders(r: Reminders): Promise<boolean> {
     }
   }
   return allowed;
+}
+
+// ---------------------------------------------------------------------
+// Medicines (app/medicines.tsx)
+// ---------------------------------------------------------------------
+
+const MED_PREFIX = 'gv-med-';
+const KEY_MED_REMINDERS = 'gv.medReminders';
+
+export async function medicineRemindersOn(): Promise<boolean> {
+  return (await AsyncStorage.getItem(KEY_MED_REMINDERS).catch(() => null)) !== 'off';
+}
+
+/** One daily reminder per time of day, naming every medicine due then. */
+export function medicineTimes(medicines: { name: string; times: string[] }[]): { time: string; names: string[] }[] {
+  const by = new Map<string, string[]>();
+  for (const m of medicines) for (const t of m.times) by.set(t, [...(by.get(t) ?? []), m.name]);
+  return [...by].sort(([a], [b]) => a.localeCompare(b)).map(([time, names]) => ({ time, names }));
+}
+
+/** Replaces all medicine reminders. False when notifications are blocked. */
+export async function scheduleMedicines(medicines: { name: string; times: string[] }[], on = true): Promise<boolean> {
+  await AsyncStorage.setItem(KEY_MED_REMINDERS, on ? 'on' : 'off').catch(() => {});
+  if (!ENABLED) return true;
+  try {
+    for (const n of await Notifications.getAllScheduledNotificationsAsync()) {
+      if (n.identifier.startsWith(MED_PREFIX)) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  } catch {}
+  const times = on ? medicineTimes(medicines) : [];
+  if (!times.length) return true;
+  if (!(await ensurePermission())) return false;
+  for (const { time, names } of times) {
+    const [hour, minute] = time.split(':').map(Number);
+    await notify(
+      {
+        title: 'Time for your medicine',
+        body: `${names.join(', ')}. Take it as your doctor prescribed.`,
+        url: '/medicines',
+        kind: 'reminder',
+      },
+      { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute },
+      `${MED_PREFIX}${time}`,
+    );
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------

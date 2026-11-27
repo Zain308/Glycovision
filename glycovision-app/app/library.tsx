@@ -4,7 +4,7 @@
 // backend nutrition table (INDB + USDA, per typical portion); tap a dish
 // for details and its source, or send its carbs straight to Bolus.
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
@@ -14,7 +14,9 @@ import { Screen } from '@/components/ui/Screen';
 import { Button } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/Bits';
 import { colors, radius, tabular } from '@/constants/theme';
-import { getFoodLibrary, type LibraryFood } from '@/services/api';
+import { haptic } from '@/lib/haptics';
+import { onMealLogged } from '@/lib/notifications';
+import { getFoodLibrary, logMeal, type LibraryFood } from '@/services/api';
 
 // Carbs per portion, for a quick "how carby is this" label.
 const carbLevel = (g: number) =>
@@ -25,6 +27,41 @@ export default function LibraryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<string | null>(null);
+  const [count, setCount] = useState(1);
+  const [logging, setLogging] = useState(false);
+  const [logged, setLogged] = useState<string | null>(null);
+
+  const choose = (name: string | null) => {
+    setOpen(name);
+    setCount(1);
+    setLogged(null);
+  };
+  const portions = (n: number) => {
+    setCount(n);
+    setLogged(null);
+  };
+
+  const logFood = async (f: LibraryFood) => {
+    if (logging) return;
+    setLogging(true);
+    const by = (x: number) => Math.round(x * count * 10) / 10;
+    try {
+      await logMeal({
+        food_name: `${f.display_name} (${count} ${count === 1 ? f.portion.unit : f.portion.unit_plural})`,
+        carbs: by(f.per_portion.carbs),
+        protein: by(f.per_portion.protein),
+        fat: by(f.per_portion.fat),
+        calories: by(f.per_portion.calories),
+      });
+      setLogged(f.food_name);
+      haptic.success();
+      onMealLogged(f.display_name);
+    } catch (e) {
+      Alert.alert('Could not log this meal', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setLogging(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -81,7 +118,7 @@ export default function LibraryScreen() {
           return (
             <Card key={f.food_name} style={styles.item}>
               <Pressable
-                onPress={() => setOpen(isOpen ? null : f.food_name)}
+                onPress={() => choose(isOpen ? null : f.food_name)}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: isOpen }}
                 accessibilityLabel={`${f.display_name}, ${f.per_portion.carbs} grams carbs per ${f.portion.unit}`}
@@ -121,13 +158,48 @@ export default function LibraryScreen() {
                   <Text style={styles.source}>
                     Source ({f.match}): {f.source}
                   </Text>
+                  <View style={styles.stepRow}>
+                    <Pressable
+                      onPress={() => portions(Math.max(0.5, count - 0.5))}
+                      disabled={count <= 0.5}
+                      accessibilityRole="button"
+                      accessibilityLabel="Less"
+                      style={[styles.stepBtn, count <= 0.5 && { opacity: 0.4 }]}
+                    >
+                      <Ionicons name="remove" size={22} color={colors.primary} />
+                    </Pressable>
+                    <View style={{ flex: 1, alignItems: 'center' }}>
+                      <Text style={styles.stepCount}>
+                        {count} {count === 1 ? f.portion.unit : f.portion.unit_plural}
+                      </Text>
+                      <Text style={styles.portion}>{Math.round(f.per_portion.carbs * count)} g carbs</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => portions(Math.min(10, count + 0.5))}
+                      disabled={count >= 10}
+                      accessibilityRole="button"
+                      accessibilityLabel="More"
+                      style={[styles.stepBtn, count >= 10 && { opacity: 0.4 }]}
+                    >
+                      <Ionicons name="add" size={22} color={colors.primary} />
+                    </Pressable>
+                  </View>
+                  <Button
+                    label={logged === f.food_name ? 'Meal logged' : 'I ate this'}
+                    icon={logged === f.food_name ? 'checkmark-circle' : 'add-circle-outline'}
+                    size="md"
+                    variant={logged === f.food_name ? 'success' : 'primary'}
+                    onPress={() => logFood(f)}
+                    loading={logging}
+                    disabled={logged === f.food_name}
+                  />
                   <Button
                     label="Use these carbs in Bolus"
                     icon="calculator"
                     size="md"
                     variant="secondary"
                     onPress={() =>
-                      router.push({ pathname: '/(tabs)/bolus', params: { prefillCarbs: String(Math.round(f.per_portion.carbs)) } })
+                      router.push({ pathname: '/(tabs)/bolus', params: { prefillCarbs: String(Math.round(f.per_portion.carbs * count)) } })
                     }
                   />
                 </View>
@@ -174,5 +246,8 @@ const styles = StyleSheet.create({
   macro: { flex: 1, backgroundColor: colors.surfaceMuted, borderRadius: radius.sm, paddingVertical: 10, alignItems: 'center' },
   macroVal: { fontSize: 16, fontWeight: '800', color: colors.text, ...tabular },
   macroLabel: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBtn: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  stepCount: { fontSize: 17, fontWeight: '800', color: colors.text },
   source: { fontSize: 13, color: colors.textFaint, lineHeight: 18 },
 });

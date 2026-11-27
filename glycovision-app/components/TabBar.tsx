@@ -35,9 +35,9 @@ const TABS: Record<string, TabDef> = {
     label: 'Scan',
     icon: () => <Ionicons name="scan" size={28} color="#FFFFFF" />,
   },
-  voice: {
-    label: 'Voice',
-    icon: (f, c) => <Ionicons name={f ? 'mic' : 'mic-outline'} size={24} color={c} />,
+  fitness: {
+    label: 'Fitness',
+    icon: (f, c) => <Ionicons name={f ? 'fitness' : 'fitness-outline'} size={24} color={c} />,
   },
   profile: {
     label: 'Profile',
